@@ -118,7 +118,7 @@ mod tests {
             frame_type: Type(0x0149),
             payload: b"\x00\xFF\x7C\xDB\xC2".as_slice().into(),
         }
-            .encode();
+        .encode();
 
         assert_eq!(
             encoded.as_slice(),
@@ -126,7 +126,7 @@ mod tests {
                 0xFF, 0x7E, 0x07, 0x92, 0x01, 0x01, 0x49, 0x00, 0xFF, 0x7C, 0xDB, 0xC2, 0x7E, 0x05,
                 0x85, 0x7E, 0x08
             ]
-                .as_slice()
+            .as_slice()
         );
 
         assert!(encoded.capacity() <= encoded.len() + 6);
@@ -134,7 +134,10 @@ mod tests {
 
     #[test]
     fn type_debug() {
-        assert_eq!(format!("{:?}", &Type::RECEIVE_RESPONSE), "Type::RECEIVE_RESPONSE");
+        assert_eq!(
+            format!("{:?}", &Type::RECEIVE_RESPONSE),
+            "Type::RECEIVE_RESPONSE"
+        );
         assert_eq!(format!("{:?}", &Type(0x1234)), "Type(0x1234)");
     }
 }

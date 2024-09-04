@@ -255,7 +255,9 @@ mod tests {
                 Frame {
                     address: Address::From(0x1201.try_into().unwrap()),
                     frame_type: Type::RECEIVE_RESPONSE,
-                    payload: b"\x00\xFE\x01\x83\x5A\xDE\x07\x00\x0A\x01\x14\x63\x3A".as_slice().into(),
+                    payload: b"\x00\xFE\x01\x83\x5A\xDE\x07\x00\x0A\x01\x14\x63\x3A"
+                        .as_slice()
+                        .into(),
                 },
                 Frame {
                     address: Address::To(0x1201.try_into().unwrap()),
@@ -380,9 +382,7 @@ mod tests {
     #[test]
     fn giant() {
         let mut rx = Receiver::new(Vec::new());
-        rx.extend_from_slice(&[
-            0x00, 0xFF, 0xFF, 0x7E, 0x07, 0x12, 0x01,
-        ]);
+        rx.extend_from_slice(&[0x00, 0xFF, 0xFF, 0x7E, 0x07, 0x12, 0x01]);
         rx.extend_from_slice(&vec![0u8; 1000]);
         assert_eq!(rx.state, State::Giant);
         rx.extend_from_slice(&[0x7E]);

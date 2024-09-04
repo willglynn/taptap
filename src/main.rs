@@ -1,15 +1,15 @@
+use clap::{Args, Parser, Subcommand};
+use log::LevelFilter;
 use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
 use std::io::{Read, Write};
 use std::process::exit;
-use clap::{Args, Parser, Subcommand};
-use log::LevelFilter;
-use taptap::{config, gateway, pv};
-use taptap::gateway::{Frame, GatewayID, physical};
 use taptap::gateway::physical::Connection;
-use taptap::pv::{LongAddress, NodeID, PacketType, SlotCounter};
+use taptap::gateway::{physical, Frame, GatewayID};
 use taptap::pv::application::{NodeTableResponseEntry, PowerReport, TopologyReport};
 use taptap::pv::network::{NodeAddress, ReceivedPacketHeader};
+use taptap::pv::{LongAddress, NodeID, PacketType, SlotCounter};
+use taptap::{config, gateway, pv};
 
 #[derive(Parser, Debug, Clone)]
 #[command(version, about, long_about = None)]
@@ -52,7 +52,6 @@ enum Commands {
     },
 }
 
-
 #[derive(Args, Debug, Clone)]
 #[group(required = true, multiple = false)]
 struct Source {
@@ -87,19 +86,16 @@ impl From<Source> for config::SourceConfig {
     fn from(value: Source) -> Self {
         #[cfg(feature = "serialport")]
         if let Some(name) = value.serial {
-            return config::SerialSourceConfig {
-                name
-            }.into();
+            return config::SerialSourceConfig { name }.into();
         }
 
         match (value.tcp,) {
-            (Some(name), ) => {
-                config::TcpConnectionConfig {
-                    hostname: name,
-                    port: value.port,
-                    mode: config::ConnectionMode::ReadOnly,
-                }.into()
+            (Some(name),) => config::TcpConnectionConfig {
+                hostname: name,
+                port: value.port,
+                mode: config::ConnectionMode::ReadOnly,
             }
+            .into(),
             _ => {
                 // clap assertions should prevent this
                 panic!("a source must be specified");
@@ -108,10 +104,12 @@ impl From<Source> for config::SourceConfig {
     }
 }
 
-
 fn main() {
     let cli = Cli::parse();
-    env_logger::Builder::new().filter_level(LevelFilter::Info).parse_default_env().init();
+    env_logger::Builder::new()
+        .filter_level(LevelFilter::Info)
+        .parse_default_env()
+        .init();
 
     match cli.command {
         Commands::PeekBytes { source, raw } => {
@@ -219,20 +217,28 @@ fn peek_activity(mut conn: Box<dyn physical::Connection>) {
         }
 
         fn gateway_identity_observed(&mut self, gateway_id: GatewayID, address: LongAddress) {
-            log::info!("gateway identity observed: {:?} = {:?}", gateway_id, address);
+            log::info!(
+                "gateway identity observed: {:?} = {:?}",
+                gateway_id,
+                address
+            );
         }
 
         fn gateway_version_observed(&mut self, gateway_id: GatewayID, version: &str) {
             log::info!("gateway version observed: {:?} = {:?}", gateway_id, version);
         }
 
-        fn enumeration_ended(&mut self) {
-            log::info!("enumeration ended");
+        fn enumeration_ended(&mut self, gateway_id: GatewayID) {
+            log::info!("enumeration ended: {:?}", gateway_id);
         }
 
         fn gateway_slot_counter_captured(&mut self, _gateway_id: GatewayID) {}
 
-        fn gateway_slot_counter_observed(&mut self, gateway_id: GatewayID, slot_counter: SlotCounter) {
+        fn gateway_slot_counter_observed(
+            &mut self,
+            gateway_id: GatewayID,
+            slot_counter: SlotCounter,
+        ) {
             let print = match self.slot_counters.entry(gateway_id) {
                 Entry::Vacant(e) => {
                     e.insert(slot_counter);
@@ -240,8 +246,8 @@ fn peek_activity(mut conn: Box<dyn physical::Connection>) {
                 }
                 Entry::Occupied(mut e) => {
                     let last = e.get();
-                    let print = last.epoch() != slot_counter.epoch() ||
-                        (last.0.get() & 0x3fff) / 1000 != (slot_counter.0.get() & 0x3fff) / 1000;
+                    let print = last.epoch() != slot_counter.epoch()
+                        || (last.0.get() & 0x3fff) / 1000 != (slot_counter.0.get() & 0x3fff) / 1000;
                     e.insert(slot_counter);
                     print
                 }
@@ -252,58 +258,108 @@ fn peek_activity(mut conn: Box<dyn physical::Connection>) {
             }
         }
 
-        fn packet_received(&mut self, gateway_id: GatewayID, header: &ReceivedPacketHeader, data: &[u8]) {
+        fn packet_received(
+            &mut self,
+            gateway_id: GatewayID,
+            header: &ReceivedPacketHeader,
+            data: &[u8],
+        ) {
             match header.packet_type {
-                PacketType::STRING_RESPONSE |
-                PacketType::POWER_REPORT |
-                PacketType::TOPOLOGY_REPORT => return,
+                PacketType::STRING_RESPONSE
+                | PacketType::POWER_REPORT
+                | PacketType::TOPOLOGY_REPORT => return,
                 _ => {}
             }
             log::info!("packet received: {:?} {:?} {:?}", gateway_id, header, data);
         }
 
-        fn command_executed(&mut self, gateway_id: GatewayID, request: (PacketType, &[u8]), response: (PacketType, &[u8])) {
+        fn command_executed(
+            &mut self,
+            gateway_id: GatewayID,
+            request: (PacketType, &[u8]),
+            response: (PacketType, &[u8]),
+        ) {
             match request.0 {
                 PacketType::STRING_REQUEST => return,
                 PacketType::NODE_TABLE_REQUEST => return,
                 _ => {}
             }
 
-            log::info!("command executed: {:?} {:?} {:?} => {:?} {:?}", gateway_id,
-                request.0, request.1,
-                response.0, response.1
+            log::info!(
+                "command executed: {:?} {:?} {:?} => {:?} {:?}",
+                gateway_id,
+                request.0,
+                request.1,
+                response.0,
+                response.1
             );
         }
     }
     impl pv::application::Sink for Sink {
         fn string_request(&mut self, gateway_id: GatewayID, pv_node_id: NodeID, request: &str) {
-            log::info!("string request: {:?} {:?} {:?}", gateway_id, pv_node_id, request);
+            log::info!(
+                "string request: {:?} {:?} {:?}",
+                gateway_id,
+                pv_node_id,
+                request
+            );
         }
 
         fn string_response(&mut self, gateway_id: GatewayID, pv_node_id: NodeID, response: &str) {
-            log::info!("string response: {:?} {:?} {:?}", gateway_id, pv_node_id, response);
+            log::info!(
+                "string response: {:?} {:?} {:?}",
+                gateway_id,
+                pv_node_id,
+                response
+            );
         }
 
-        fn node_table_page(&mut self, gateway_id: GatewayID, start_address: NodeAddress, nodes: &[NodeTableResponseEntry]) {
-            log::info!("node table page: {:?} start {:?} {:?}", gateway_id, start_address, nodes);
+        fn node_table_page(
+            &mut self,
+            gateway_id: GatewayID,
+            start_address: NodeAddress,
+            nodes: &[NodeTableResponseEntry],
+        ) {
+            log::info!(
+                "node table page: {:?} start {:?} {:?}",
+                gateway_id,
+                start_address,
+                nodes
+            );
         }
 
-        fn topology_report(&mut self, gateway_id: GatewayID, pv_node_id: NodeID, topology_report: &TopologyReport) {
-            log::info!("topology report: {:?} {:?} {:?}", gateway_id, pv_node_id, topology_report);
+        fn topology_report(
+            &mut self,
+            gateway_id: GatewayID,
+            pv_node_id: NodeID,
+            topology_report: &TopologyReport,
+        ) {
+            log::info!(
+                "topology report: {:?} {:?} {:?}",
+                gateway_id,
+                pv_node_id,
+                topology_report
+            );
         }
 
-        fn power_report(&mut self, gateway_id: GatewayID, pv_node_id: NodeID, power_report: &PowerReport) {
-            log::info!("power report: {:?} {:?} {:?}", gateway_id, pv_node_id, power_report);
+        fn power_report(
+            &mut self,
+            gateway_id: GatewayID,
+            pv_node_id: NodeID,
+            power_report: &PowerReport,
+        ) {
+            log::info!(
+                "power report: {:?} {:?} {:?}",
+                gateway_id,
+                pv_node_id,
+                power_report
+            );
         }
     }
 
-    let mut rx = gateway::link::Receiver::new(
-        gateway::transport::Receiver::new(
-            pv::application::Receiver::new(
-                Sink::default()
-            )
-        )
-    );
+    let mut rx = gateway::link::Receiver::new(gateway::transport::Receiver::new(
+        pv::application::Receiver::new(Sink::default()),
+    ));
 
     let mut buffer = [0u8; 1024];
     loop {
@@ -346,8 +402,13 @@ fn list_serial_ports() {
         println!("    --serial {}", port.name());
         match port.port_type() {
             SerialPortType::UsbPort(usb) if usb.manufacturer.is_some() && usb.product.is_some() => {
-                println!("      USB {:04x}:{:04x} ({} {})", usb.pid, usb.vid,
-                         usb.manufacturer.as_ref().unwrap(), usb.product.as_ref().unwrap());
+                println!(
+                    "      USB {:04x}:{:04x} ({} {})",
+                    usb.pid,
+                    usb.vid,
+                    usb.manufacturer.as_ref().unwrap(),
+                    usb.product.as_ref().unwrap()
+                );
             }
             SerialPortType::UsbPort(usb) => {
                 println!("      USB {:04x}:{:04x}", usb.pid, usb.vid);
@@ -362,13 +423,9 @@ fn list_serial_ports() {
 
 fn observe(mut conn: Box<dyn Connection>) {
     let observer = taptap::observer::Observer::default();
-    let mut rx = gateway::link::Receiver::new(
-        gateway::transport::Receiver::new(
-            pv::application::Receiver::new(
-                observer,
-            )
-        )
-    );
+    let mut rx = gateway::link::Receiver::new(gateway::transport::Receiver::new(
+        pv::application::Receiver::new(observer),
+    ));
 
     let mut buffer = [0u8; 1024];
     loop {

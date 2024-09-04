@@ -16,9 +16,7 @@ pub struct PowerReport {
 }
 
 /// A pair of 12-bit unsigned integers packed into a single `[u8; 3]`.
-#[derive(
-    Copy, Clone, Eq, PartialEq, FromBytes, Immutable, IntoBytes, KnownLayout, Unaligned,
-)]
+#[derive(Copy, Clone, Eq, PartialEq, FromBytes, Immutable, IntoBytes, KnownLayout, Unaligned)]
 #[repr(C)]
 pub struct U12Pair(pub [u8; 3]);
 

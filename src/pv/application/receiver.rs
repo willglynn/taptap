@@ -132,8 +132,8 @@ impl<S: gateway::transport::Sink + Sink> gateway::transport::Sink for Receiver<S
         self.sink.gateway_version_observed(gateway_id, version)
     }
 
-    fn enumeration_ended(&mut self) {
-        self.sink.enumeration_ended()
+    fn enumeration_ended(&mut self, gateway_id: GatewayID) {
+        self.sink.enumeration_ended(gateway_id)
     }
 
     fn gateway_slot_counter_captured(&mut self, gateway_id: GatewayID) {
@@ -205,7 +205,10 @@ impl<S: gateway::transport::Sink + Sink> gateway::transport::Sink for Receiver<S
                 self.string_command(gateway_id, request.1, response.1);
             }
             //(PacketType::BROADCAST, PacketType::BROADCAST_ACK) => {}
-            (PacketType::NETWORK_STATUS_REQUEST | PacketType::LONG_NETWORK_STATUS_REQUEST, PacketType::NETWORK_STATUS_RESPONSE) => {
+            (
+                PacketType::NETWORK_STATUS_REQUEST | PacketType::LONG_NETWORK_STATUS_REQUEST,
+                PacketType::NETWORK_STATUS_RESPONSE,
+            ) => {
                 // TODO
             }
             _ => {

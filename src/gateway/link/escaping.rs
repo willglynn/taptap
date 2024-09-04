@@ -4,9 +4,9 @@
 pub fn escaped_length(input: &[u8]) -> usize {
     input.len()
         + input
-        .iter()
-        .filter(|b| matches!(**b, 0x7e | 0x23..=0x25 | 0xa3..=0xa5))
-        .count()
+            .iter()
+            .filter(|b| matches!(**b, 0x7e | 0x23..=0x25 | 0xa3..=0xa5))
+            .count()
 }
 
 #[derive(thiserror::Error, Debug, Copy, Clone, Eq, PartialEq)]

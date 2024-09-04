@@ -1,6 +1,6 @@
-use std::time::{Duration, SystemTime};
 use crate::pv::link::InvalidSlotNumber;
 use crate::pv::SlotCounter;
+use std::time::{Duration, SystemTime};
 
 /// A data structure collating absolute timestamps to slot counters.
 #[derive(Debug, Clone)]
@@ -47,14 +47,19 @@ impl SlotClock {
 
     fn index_and_offset(slot_counter: SlotCounter) -> Result<(usize, Duration), InvalidSlotNumber> {
         slot_counter.slot_number().map(|n| {
-            let absolute_slot = (slot_counter.epoch() as u8 as usize) * 12000 + (u16::from(n)) as usize;
+            let absolute_slot =
+                (slot_counter.epoch() as u8 as usize) * 12000 + (u16::from(n)) as usize;
             let index = absolute_slot / 1000;
             let offset = NOMINAL_DURATION_PER_SLOT * (absolute_slot % 1000) as u32;
             (index, offset)
         })
     }
 
-    pub fn set(&mut self, slot_counter: SlotCounter, time: SystemTime) -> Result<(), InvalidSlotNumber> {
+    pub fn set(
+        &mut self,
+        slot_counter: SlotCounter,
+        time: SystemTime,
+    ) -> Result<(), InvalidSlotNumber> {
         let (index, offset) = Self::index_and_offset(slot_counter)?;
 
         if self.last_time > time {
@@ -117,39 +122,93 @@ mod tests {
         let mut clock = SlotClock::new(SlotCounter::from(0xc000), x).unwrap();
 
         // 0x8000 was one minute ago
-        assert_eq!(clock.get(SlotCounter::from(0x8000)), Ok(x - Duration::from_secs(60)));
+        assert_eq!(
+            clock.get(SlotCounter::from(0x8000)),
+            Ok(x - Duration::from_secs(60))
+        );
         // 0x4000 was two minutes ago
-        assert_eq!(clock.get(SlotCounter::from(0x4000)), Ok(x - Duration::from_secs(120)));
+        assert_eq!(
+            clock.get(SlotCounter::from(0x4000)),
+            Ok(x - Duration::from_secs(120))
+        );
         // 0x0000 was three minutes ago
-        assert_eq!(clock.get(SlotCounter::from(0x0000)), Ok(x - Duration::from_secs(180)));
+        assert_eq!(
+            clock.get(SlotCounter::from(0x0000)),
+            Ok(x - Duration::from_secs(180))
+        );
         // 0xc000 + 1000 was three minutes 55 seconds ago
-        assert_eq!(clock.get(SlotCounter::from(0xc000 + 1000)), Ok(x - Duration::from_secs(180 + 55)));
+        assert_eq!(
+            clock.get(SlotCounter::from(0xc000 + 1000)),
+            Ok(x - Duration::from_secs(180 + 55))
+        );
 
         // Advance to 0xc000 + 1000 at 5 seconds later
         let later = x + Duration::from_secs(5);
         clock.set(SlotCounter::from(0xc000 + 1000), later).unwrap();
 
         // 0x8000 was one minute before x
-        assert_eq!(clock.get(SlotCounter::from(0x8000)), Ok(x - Duration::from_secs(60)));
+        assert_eq!(
+            clock.get(SlotCounter::from(0x8000)),
+            Ok(x - Duration::from_secs(60))
+        );
         // 0x4000 was two minutes before x
-        assert_eq!(clock.get(SlotCounter::from(0x4000)), Ok(x - Duration::from_secs(120)));
+        assert_eq!(
+            clock.get(SlotCounter::from(0x4000)),
+            Ok(x - Duration::from_secs(120))
+        );
         // 0x0000 was three minutes before x
-        assert_eq!(clock.get(SlotCounter::from(0x0000)), Ok(x - Duration::from_secs(180)));
+        assert_eq!(
+            clock.get(SlotCounter::from(0x0000)),
+            Ok(x - Duration::from_secs(180))
+        );
         // 0xc000 + 1000 is x + 5
-        assert_eq!(clock.get(SlotCounter::from(0xc000 + 1000)), Ok(x + Duration::from_secs(5)));
+        assert_eq!(
+            clock.get(SlotCounter::from(0xc000 + 1000)),
+            Ok(x + Duration::from_secs(5))
+        );
     }
 
     #[test]
     fn index_and_offset() {
-        assert_eq!(SlotClock::index_and_offset(SlotCounter::ZERO), Ok((0, Duration::from_millis(0))));
-        assert_eq!(SlotClock::index_and_offset(SlotCounter(999.into())), Ok((0, Duration::from_millis(999 * 5))));
-        assert_eq!(SlotClock::index_and_offset(SlotCounter(1000.into())), Ok((1, Duration::from_millis(0))));
-        assert_eq!(SlotClock::index_and_offset(SlotCounter(1999.into())), Ok((1, Duration::from_millis(999 * 5))));
-        assert_eq!(SlotClock::index_and_offset(SlotCounter(2000.into())), Ok((2, Duration::from_millis(0))));
-        assert_eq!(SlotClock::index_and_offset(SlotCounter(11999.into())), Ok((11, Duration::from_millis(999 * 5))));
-        assert_eq!(SlotClock::index_and_offset(SlotCounter(12000.into())), Err(InvalidSlotNumber(12000)));
-        assert_eq!(SlotClock::index_and_offset(SlotCounter(0x4000.into())), Ok((12, Duration::from_millis(0))));
-        assert_eq!(SlotClock::index_and_offset(SlotCounter((0x4000 + 999).into())), Ok((12, Duration::from_millis(999 * 5))));
-        assert_eq!(SlotClock::index_and_offset(SlotCounter((0x4000 + 1000).into())), Ok((13, Duration::from_millis(0))));
+        assert_eq!(
+            SlotClock::index_and_offset(SlotCounter::ZERO),
+            Ok((0, Duration::from_millis(0)))
+        );
+        assert_eq!(
+            SlotClock::index_and_offset(SlotCounter(999.into())),
+            Ok((0, Duration::from_millis(999 * 5)))
+        );
+        assert_eq!(
+            SlotClock::index_and_offset(SlotCounter(1000.into())),
+            Ok((1, Duration::from_millis(0)))
+        );
+        assert_eq!(
+            SlotClock::index_and_offset(SlotCounter(1999.into())),
+            Ok((1, Duration::from_millis(999 * 5)))
+        );
+        assert_eq!(
+            SlotClock::index_and_offset(SlotCounter(2000.into())),
+            Ok((2, Duration::from_millis(0)))
+        );
+        assert_eq!(
+            SlotClock::index_and_offset(SlotCounter(11999.into())),
+            Ok((11, Duration::from_millis(999 * 5)))
+        );
+        assert_eq!(
+            SlotClock::index_and_offset(SlotCounter(12000.into())),
+            Err(InvalidSlotNumber(12000))
+        );
+        assert_eq!(
+            SlotClock::index_and_offset(SlotCounter(0x4000.into())),
+            Ok((12, Duration::from_millis(0)))
+        );
+        assert_eq!(
+            SlotClock::index_and_offset(SlotCounter((0x4000 + 999).into())),
+            Ok((12, Duration::from_millis(999 * 5)))
+        );
+        assert_eq!(
+            SlotClock::index_and_offset(SlotCounter((0x4000 + 1000).into())),
+            Ok((13, Duration::from_millis(0)))
+        );
     }
 }

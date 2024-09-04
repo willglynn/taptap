@@ -14,17 +14,17 @@
 //! └───┘  └───┘
 //! ```
 
-use std::collections::btree_map::Entry;
 use crate::gateway::link::GatewayID;
+use crate::pv::application::{NodeTableResponseEntry, TopologyReport};
 use crate::pv::link::SlotCounter;
 use crate::pv::network::{NodeAddress, ReceivedPacketHeader};
 use crate::pv::{LongAddress, NodeID, PacketType};
 use crate::{gateway, pv};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
 use std::time::SystemTime;
-use crate::pv::application::{NodeTableResponseEntry, TopologyReport};
 
 pub mod event;
 
@@ -119,7 +119,7 @@ impl gateway::transport::Sink for Observer {
         }
     }
 
-    fn enumeration_ended(&mut self) {
+    fn enumeration_ended(&mut self, _gateway_id: GatewayID) {
         // We're done enumerating
         // Did we catch the whole exchange?
         if let Some(enumeration_state) = self.enumeration_state.take() {
@@ -131,14 +131,11 @@ impl gateway::transport::Sink for Observer {
     }
 
     fn gateway_slot_counter_captured(&mut self, gateway_id: GatewayID) {
-        self.captured_slot_counters.insert(gateway_id, SystemTime::now());
+        self.captured_slot_counters
+            .insert(gateway_id, SystemTime::now());
     }
 
-    fn gateway_slot_counter_observed(
-        &mut self,
-        gateway_id: GatewayID,
-        slot_counter: SlotCounter,
-    ) {
+    fn gateway_slot_counter_observed(&mut self, gateway_id: GatewayID, slot_counter: SlotCounter) {
         let Some(time) = self.captured_slot_counters.remove(&gateway_id) else {
             return;
         };
@@ -160,14 +157,16 @@ impl gateway::transport::Sink for Observer {
         _gateway_id: GatewayID,
         _header: &ReceivedPacketHeader,
         _data: &[u8],
-    ) {}
+    ) {
+    }
 
     fn command_executed(
         &mut self,
         _gateway_id: GatewayID,
         _request: (PacketType, &[u8]),
         _response: (PacketType, &[u8]),
-    ) {}
+    ) {
+    }
 }
 
 impl pv::application::Sink for Observer {
@@ -195,7 +194,8 @@ impl pv::application::Sink for Observer {
         _gateway_id: GatewayID,
         _pv_node_id: NodeID,
         _topology_report: &TopologyReport,
-    ) {}
+    ) {
+    }
 
     fn power_report(
         &mut self,
@@ -204,7 +204,11 @@ impl pv::application::Sink for Observer {
         power_report: &pv::application::PowerReport,
     ) {
         let Some(slot_clock) = self.slot_clocks.get(&gateway_id) else {
-            log::error!("discarding power report from gateway {:?} due to missing slot clock: {:?}", gateway_id, power_report);
+            log::error!(
+                "discarding power report from gateway {:?} due to missing slot clock: {:?}",
+                gateway_id,
+                power_report
+            );
             return;
         };
 
@@ -214,7 +218,11 @@ impl pv::application::Sink for Observer {
             slot_clock,
             power_report,
         ) else {
-            log::error!("discarding power report from gateway {:?} due to invalid slot counter: {:?}", gateway_id, power_report);
+            log::error!(
+                "discarding power report from gateway {:?} due to invalid slot counter: {:?}",
+                gateway_id,
+                power_report
+            );
             return;
         };
 

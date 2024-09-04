@@ -1,8 +1,8 @@
-use chrono::{DateTime, Local};
 use super::*;
 use crate::pv;
 use crate::pv::link::InvalidSlotNumber;
 use crate::pv::physical::RSSI;
+use chrono::{DateTime, Local};
 
 /// An event produced by an observer.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -58,7 +58,12 @@ pub struct PowerReportEvent {
 }
 
 impl PowerReportEvent {
-    pub fn new(gateway: Gateway, node: Node, slot_clock: &SlotClock, report: &pv::application::PowerReport) -> Result<Self, InvalidSlotNumber> {
+    pub fn new(
+        gateway: Gateway,
+        node: Node,
+        slot_clock: &SlotClock,
+        report: &pv::application::PowerReport,
+    ) -> Result<Self, InvalidSlotNumber> {
         let timestamp = slot_clock.get(report.slot_counter)?;
 
         let (voltage_in, voltage_out) = report.voltage_in_and_voltage_out.into();
@@ -76,10 +81,10 @@ impl PowerReportEvent {
             gateway,
             node,
             timestamp: timestamp.into(),
-            voltage_in: voltage_in as f64 / 20.0, //* 0.05,
+            voltage_in: voltage_in as f64 / 20.0,   //* 0.05,
             voltage_out: voltage_out as f64 / 10.0, // * 0.10,
             dc_dc_duty_cycle: report.dc_dc_duty_cycle as f64 / 255.0,
-            current: current as f64 / 200.0, // * 0.005,
+            current: current as f64 / 200.0,        // * 0.005,
             temperature: temperature as f64 / 10.0, // * 0.01,
             rssi: report.rssi,
         })
@@ -88,13 +93,19 @@ impl PowerReportEvent {
 
 #[cfg(test)]
 mod tests {
-    use crate::pv::application::{PowerReport, U12Pair};
     use super::*;
+    use crate::pv::application::{PowerReport, U12Pair};
 
     #[test]
     fn negative_temperature() {
-        let gateway = Gateway { id: 1.try_into().unwrap(), address: None };
-        let node = Node { id: 1.try_into().unwrap(), address: None };
+        let gateway = Gateway {
+            id: 1.try_into().unwrap(),
+            address: None,
+        };
+        let node = Node {
+            id: 1.try_into().unwrap(),
+            address: None,
+        };
 
         let rssi = RSSI(100);
         let timestamp = SystemTime::now();
@@ -110,7 +121,8 @@ mod tests {
             rssi,
         };
 
-        let power_report_event = PowerReportEvent::new(gateway, node, &slot_clock, &power_report).unwrap();
+        let power_report_event =
+            PowerReportEvent::new(gateway, node, &slot_clock, &power_report).unwrap();
 
         let actual = serde_json::to_string(&power_report_event).unwrap();
         let expected = serde_json::to_string(&PowerReportEvent {
@@ -123,7 +135,8 @@ mod tests {
             dc_dc_duty_cycle: 1.0,
             temperature: -0.1,
             rssi,
-        }).unwrap();
-        assert_eq!(actual, expected);   // floats :|
+        })
+        .unwrap();
+        assert_eq!(actual, expected); // floats :|
     }
 }

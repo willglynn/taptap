@@ -3,7 +3,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use zerocopy::{big_endian, FromBytes, Immutable, IntoBytes, KnownLayout, Unaligned, U16};
 
 mod slot_counter;
-pub use slot_counter::{SlotCounter, SlotNumber, SlotEpoch, InvalidSlotNumber};
+pub use slot_counter::{InvalidSlotNumber, SlotCounter, SlotEpoch, SlotNumber};
 
 /// A 16-bit PV link layer (802.15.4) short address.
 #[derive(
@@ -66,7 +66,7 @@ impl std::fmt::Debug for LongAddress {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.debug_tuple("LongAddress")
             .field(&format_args!(
-                "[#{:#02X},#{:#02X},#{:#02X},#{:#02X},#{:#02X},#{:#02X},#{:#02X},#{:#02X}]",
+                "[{:#04X},{:#04X},{:#04X},{:#04X},{:#04X},{:#04X},{:#04X},{:#04X}]",
                 self.0[0],
                 self.0[1],
                 self.0[2],
