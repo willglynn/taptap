@@ -376,4 +376,29 @@ mod tests {
         );
         assert_eq!(rx.buffer.len(), 0);
     }
+
+    #[test]
+    fn giant() {
+        let mut rx = Receiver::new(Vec::new());
+        rx.extend_from_slice(&[
+            0x00, 0xFF, 0xFF, 0x7E, 0x07, 0x12, 0x01,
+        ]);
+        rx.extend_from_slice(&vec![0u8; 1000]);
+        assert_eq!(rx.state, State::Giant);
+        rx.extend_from_slice(&[0x7E]);
+        assert_eq!(rx.state, State::GiantEscape);
+        rx.extend_from_slice(&[0x08]);
+        assert_eq!(rx.state, State::Idle);
+        assert_eq!(
+            rx.counters,
+            Counters {
+                frames: 0,
+                runts: 0,
+                giants: 1,
+                checksums: 0,
+                noise: 0,
+            }
+        );
+        assert_eq!(rx.buffer.len(), 0);
+    }
 }

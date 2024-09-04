@@ -110,7 +110,6 @@ impl std::fmt::Debug for Type {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::ops::Deref;
 
     #[test]
     fn frame_encoding() {
@@ -121,14 +120,21 @@ mod tests {
         }
             .encode();
 
-        let encoded = encoded.deref();
         assert_eq!(
-            encoded,
+            encoded.as_slice(),
             [
                 0xFF, 0x7E, 0x07, 0x92, 0x01, 0x01, 0x49, 0x00, 0xFF, 0x7C, 0xDB, 0xC2, 0x7E, 0x05,
                 0x85, 0x7E, 0x08
             ]
                 .as_slice()
         );
+
+        assert!(encoded.capacity() <= encoded.len() + 6);
+    }
+
+    #[test]
+    fn type_debug() {
+        assert_eq!(format!("{:?}", &Type::RECEIVE_RESPONSE), "Type::RECEIVE_RESPONSE");
+        assert_eq!(format!("{:?}", &Type(0x1234)), "Type(0x1234)");
     }
 }

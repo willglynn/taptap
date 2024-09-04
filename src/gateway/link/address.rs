@@ -139,4 +139,9 @@ mod tests {
             <[u8; 2]>::from(Address::From(GatewayID(0x1201)))
         );
     }
+
+    #[test]
+    fn address_fmt() {
+        assert_eq!(format!("{:?}", &GatewayID(0x1201)), "GatewayID(0x1201)");
+    }
 }
