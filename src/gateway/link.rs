@@ -3,7 +3,6 @@
 mod address;
 
 pub use address::{Address, GatewayID, InvalidGatewayID};
-use bytes::{BufMut, Bytes, BytesMut};
 
 mod crc;
 
@@ -16,20 +15,20 @@ pub use receive::{Counters, Receiver, Sink};
 pub struct Frame {
     pub address: Address,
     pub frame_type: Type,
-    pub payload: Bytes,
+    pub payload: Vec<u8>,
 }
 
 impl Frame {
     /// Encode the frame into `Bytes` ready for transmission by the physical layer, including a
     /// preamble.
-    pub fn encode(&self) -> Bytes {
+    pub fn encode(&self) -> Vec<u8> {
         let start = match self.address {
             Address::From(_) => [0xff, 0x7e, 0x07].as_slice(),
             Address::To(_) => [0x00, 0xff, 0xff, 0x7e, 0x07].as_slice(),
         };
         let end = &[0x7e, 0x08];
 
-        let mut output_buffer = BytesMut::with_capacity(
+        let mut output_buffer = Vec::with_capacity(
             start.len()
                 + 4 // worst case escaped address
                 + 4 // worst case escaped frame type
@@ -38,20 +37,20 @@ impl Frame {
                 + end.len(), // frame end
         );
 
-        output_buffer.put_slice(start);
+        output_buffer.extend_from_slice(start);
 
         let mut body = Vec::with_capacity(2 + 2 + self.payload.len());
-        body.put_slice(&<[u8; 2]>::from(self.address));
-        body.put_slice(&self.frame_type.0.to_be_bytes());
-        body.put_slice(&self.payload);
+        body.extend_from_slice(&<[u8; 2]>::from(self.address));
+        body.extend_from_slice(&self.frame_type.0.to_be_bytes());
+        body.extend_from_slice(&self.payload);
         let crc = crc::crc(&body);
-        body.put_slice(&crc.to_le_bytes());
+        body.extend_from_slice(&crc.to_le_bytes());
 
         escaping::escape(&body, &mut output_buffer);
 
-        output_buffer.put_slice(end);
+        output_buffer.extend_from_slice(end);
 
-        output_buffer.freeze()
+        output_buffer
     }
 }
 
@@ -118,9 +117,9 @@ mod tests {
         let encoded = Frame {
             address: Address::From(GatewayID::try_from(0x1201).unwrap()),
             frame_type: Type(0x0149),
-            payload: Bytes::from_static(b"\x00\xFF\x7C\xDB\xC2".as_slice()),
+            payload: b"\x00\xFF\x7C\xDB\xC2".as_slice().into(),
         }
-        .encode();
+            .encode();
 
         let encoded = encoded.deref();
         assert_eq!(
@@ -129,7 +128,7 @@ mod tests {
                 0xFF, 0x7E, 0x07, 0x92, 0x01, 0x01, 0x49, 0x00, 0xFF, 0x7C, 0xDB, 0xC2, 0x7E, 0x05,
                 0x85, 0x7E, 0x08
             ]
-            .as_slice()
+                .as_slice()
         );
     }
 }

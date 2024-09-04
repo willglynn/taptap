@@ -1,14 +1,12 @@
 //! Gateway link layer escaping.
 
-use bytes::{BufMut, BytesMut};
-
 /// Determine the number of bytes needed to store the escaped version of a given input buffer.
 pub fn escaped_length(input: &[u8]) -> usize {
     input.len()
         + input
-            .iter()
-            .filter(|b| matches!(**b, 0x7e | 0x23..=0x25 | 0xa3..=0xa5))
-            .count()
+        .iter()
+        .filter(|b| matches!(**b, 0x7e | 0x23..=0x25 | 0xa3..=0xa5))
+        .count()
 }
 
 #[derive(thiserror::Error, Debug, Copy, Clone, Eq, PartialEq)]
@@ -16,7 +14,7 @@ pub fn escaped_length(input: &[u8]) -> usize {
 pub struct InvalidEscapeSequence;
 
 /// Apply link layer escaping.
-pub fn escape(buffer: &[u8], output: &mut BytesMut) {
+pub fn escape(buffer: &[u8], output: &mut Vec<u8>) {
     output.reserve(buffer.len());
 
     for byte in buffer {
@@ -29,12 +27,12 @@ pub fn escape(buffer: &[u8], output: &mut BytesMut) {
             0xa3 => 0x05,
             0xa5 => 0x06,
             _ => {
-                output.put_u8(*byte);
+                output.push(*byte);
                 continue;
             }
         };
-        output.put_u8(0x7e);
-        output.put_u8(escaped);
+        output.push(0x7e);
+        output.push(escaped);
     }
 }
 
@@ -84,7 +82,7 @@ mod tests {
     #[test]
     fn test_escape() {
         for (raw, escaped) in EXAMPLES.iter().copied() {
-            let mut output = BytesMut::new();
+            let mut output = Vec::new();
             escape(raw, &mut output);
             assert_eq!(output, escaped, "{:?}", raw);
         }

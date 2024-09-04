@@ -15,7 +15,6 @@ default = ["serialport", "clap", "env_logger"]
 [dependencies]
 # Library dependencies
 thiserror = "1.0"
-bytes = "1.6"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 schemars = { version = "1.0.0-alpha.2", features = ["chrono04"] }

@@ -20,7 +20,7 @@ pub struct Receiver<S: Sink> {
     sink: S,
     state: State,
     counters: Counters,
-    buffer: BytesMut,
+    buffer: Vec<u8>,
 }
 
 impl<S: Sink> Receiver<S> {
@@ -105,7 +105,7 @@ impl<S: Sink> Receiver<S> {
                     0x7e => State::FrameEscape,
                     // Normal data byte
                     _ if self.buffer.len() < Self::MAX_FRAME_SIZE => {
-                        self.buffer.put_u8(byte);
+                        self.buffer.push(byte);
                         State::Frame
                     }
                     // Overlong frame
@@ -120,7 +120,7 @@ impl<S: Sink> Receiver<S> {
                     State::Idle
                 } else if let Ok(byte) = escaping::unescaped_byte(byte) {
                     if self.buffer.len() < Self::MAX_FRAME_SIZE {
-                        self.buffer.put_u8(byte);
+                        self.buffer.push(byte);
                         State::Frame
                     } else {
                         self.buffer.truncate(0);
@@ -184,7 +184,7 @@ impl<S: Sink> Receiver<S> {
         self.sink.frame(Frame {
             address,
             frame_type,
-            payload: Bytes::copy_from_slice(body.split_at(4).1),
+            payload: Vec::from(body.split_at(4).1),
         });
     }
 }
@@ -250,24 +250,22 @@ mod tests {
                 Frame {
                     address: Address::To(0x1201.try_into().unwrap()),
                     frame_type: Type::RECEIVE_REQUEST,
-                    payload: Bytes::from_static(b"\x00\x01\x18\x83\x04".as_slice()),
+                    payload: b"\x00\x01\x18\x83\x04".as_slice().into(),
                 },
                 Frame {
                     address: Address::From(0x1201.try_into().unwrap()),
                     frame_type: Type::RECEIVE_RESPONSE,
-                    payload: Bytes::from_static(
-                        b"\x00\xFE\x01\x83\x5A\xDE\x07\x00\x0A\x01\x14\x63\x3A".as_slice()
-                    ),
+                    payload: b"\x00\xFE\x01\x83\x5A\xDE\x07\x00\x0A\x01\x14\x63\x3A".as_slice().into(),
                 },
                 Frame {
                     address: Address::To(0x1201.try_into().unwrap()),
                     frame_type: Type::RECEIVE_REQUEST,
-                    payload: Bytes::from_static(b"\x00\x01\x18\x84\x04".as_slice()),
+                    payload: b"\x00\x01\x18\x84\x04".as_slice().into(),
                 },
                 Frame {
                     address: Address::From(0x1201.try_into().unwrap()),
                     frame_type: Type::RECEIVE_RESPONSE,
-                    payload: Bytes::from_static(b"\x00\xFF\x7C\xDB\xC2".as_slice()),
+                    payload: b"\x00\xFF\x7C\xDB\xC2".as_slice().into(),
                 },
             ]
         );
@@ -354,7 +352,7 @@ mod tests {
     fn runt() {
         let mut rx = Receiver::new(Vec::new());
 
-        let mut buf = BytesMut::new();
+        let mut buf = Vec::new();
         buf.extend_from_slice(&[0xff, 0x7e, 0x07, 0x7e, 0x08]);
         buf.extend_from_slice(&[0x7e, 0x08]);
 
