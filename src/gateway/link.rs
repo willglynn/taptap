@@ -36,19 +36,31 @@ impl Frame {
                 + 4 // worst case CRC
                 + end.len(), // frame end
         );
+        let initial_output_buffer_capacity = output_buffer.capacity();
 
+        // Add the start sequence
         output_buffer.extend_from_slice(start);
 
-        let mut body = Vec::with_capacity(2 + 2 + self.payload.len());
+        // Assemble the middle
+        let mut body = Vec::with_capacity(2 + 2 + self.payload.len() + 2);
+        let initial_body_capacity = body.capacity();
         body.extend_from_slice(&<[u8; 2]>::from(self.address));
         body.extend_from_slice(&self.frame_type.0.to_be_bytes());
         body.extend_from_slice(&self.payload);
+
+        // Calculate and append the CRC
         let crc = crc::crc(&body);
         body.extend_from_slice(&crc.to_le_bytes());
 
+        // Append the escaped content to the output buffer
         escaping::escape(&body, &mut output_buffer);
 
+        // Append the terminator
         output_buffer.extend_from_slice(end);
+
+        // Ensure we didn't need to reallocate
+        debug_assert_eq!(body.capacity(), initial_body_capacity);
+        debug_assert_eq!(output_buffer.capacity(), initial_output_buffer_capacity);
 
         output_buffer
     }

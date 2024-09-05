@@ -262,3 +262,6 @@ impl EnumerationState {
         self.gateway_identities.insert(gateway, address);
     }
 }
+
+#[cfg(test)]
+mod tests;

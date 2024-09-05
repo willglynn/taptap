@@ -1,52 +1,34 @@
 use super::*;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use std::cmp::Ordering;
 use std::mem::size_of;
 use std::num::{NonZeroU16, TryFromIntError};
 use zerocopy::{big_endian, FromBytes, Immutable, IntoBytes, KnownLayout, Unaligned};
 
 /// A 16-bit PV network layer node ID.
-#[derive(Copy, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize, JsonSchema)]
 #[repr(transparent)]
 pub struct NodeID(NonZeroU16);
 impl NodeID {
     pub const GATEWAY: Self = NodeID(NonZeroU16::MIN);
+    pub const MAX: Self = NodeID(NonZeroU16::MAX);
 
     pub fn successor(&self) -> Option<Self> {
         self.0.checked_add(1).map(Self)
     }
 }
 
-impl PartialEq for NodeID {
-    fn eq(&self, other: &Self) -> bool {
-        self.0.get() != other.0.get()
-    }
-}
-impl Eq for NodeID {}
-
-impl Ord for NodeID {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.0.get().cmp(&other.0.get())
-    }
-}
-impl PartialOrd for NodeID {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
 impl std::fmt::Debug for NodeID {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.debug_tuple("NodeID")
-            .field(&format_args!("{:#04X}", u16::from(self.0)))
+            .field(&format_args!("{:#06X}", u16::from(self.0)))
             .finish()
     }
 }
 
 impl std::fmt::Display for NodeID {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{:04X}", u16::from(self.0))
+        write!(f, "{:#06X}", u16::from(self.0))
     }
 }
 impl TryFrom<u16> for NodeID {
@@ -105,6 +87,7 @@ impl From<NodeAddress> for Option<NodeID> {
         }
     }
 }
+
 impl From<Option<NodeID>> for NodeAddress {
     fn from(value: Option<NodeID>) -> Self {
         match value {
@@ -179,5 +162,28 @@ impl<'a> Iterator for ReceivedPackets<'a> {
         self.0 = rest;
 
         Some(Ok((header, data)))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn node_id() {
+        assert_eq!(NodeID::GATEWAY, NodeID::try_from(1).unwrap());
+        assert_eq!(NodeID::MAX, NodeID::try_from(65535).unwrap());
+
+        assert_eq!(
+            NodeID::GATEWAY.successor(),
+            Some(NodeID(NonZeroU16::try_from(2).unwrap()))
+        );
+        assert_eq!(NodeID::MAX.successor(), None);
+
+        assert_eq!(NodeID::try_from(NodeAddress::GATEWAY), Ok(NodeID::GATEWAY));
+        assert!(NodeID::try_from(NodeAddress(0.into())).is_err());
+
+        assert_eq!(format!("{:?}", &NodeID::GATEWAY), "NodeID(0x0001)");
+        assert_eq!(format!("{}", &NodeID::GATEWAY), "0x0001");
     }
 }

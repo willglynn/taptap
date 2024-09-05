@@ -66,7 +66,7 @@ impl std::fmt::Debug for LongAddress {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.debug_tuple("LongAddress")
             .field(&format_args!(
-                "[{:#04X},{:#04X},{:#04X},{:#04X},{:#04X},{:#04X},{:#04X},{:#04X}]",
+                "[{:#04X}, {:#04X}, {:#04X}, {:#04X}, {:#04X}, {:#04X}, {:#04X}, {:#04X}]",
                 self.0[0],
                 self.0[1],
                 self.0[2],
@@ -113,5 +113,43 @@ impl std::fmt::Debug for DSN {
 impl std::fmt::Display for DSN {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{:#04X}", self.0)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn long_address_fmt() {
+        assert_eq!(
+            format!(
+                "{:?}",
+                &LongAddress([0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08])
+            ),
+            "LongAddress([0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08])"
+        );
+        assert_eq!(
+            format!(
+                "{}",
+                &LongAddress([0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08])
+            ),
+            "01:02:03:04:05:06:07:08"
+        );
+    }
+
+    #[test]
+    fn short_address_fmt() {
+        assert_eq!(
+            format!("{:?}", &ShortAddress(0x1234.into())),
+            "ShortAddress(0x1234)",
+        );
+        assert_eq!(format!("{}", &ShortAddress(0x1234.into())), "0x1234",);
+    }
+
+    #[test]
+    fn dsn_fmt() {
+        assert_eq!(format!("{:?}", &DSN(0x12)), "DSN(0x12)",);
+        assert_eq!(format!("{}", &DSN(0x12)), "0x12",);
     }
 }

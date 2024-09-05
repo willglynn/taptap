@@ -8,3 +8,6 @@ pub mod capture;
 
 pub mod config;
 pub mod observer;
+
+#[cfg(test)]
+pub mod test_data;
