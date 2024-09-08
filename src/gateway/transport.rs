@@ -74,8 +74,8 @@ pub struct ReceiveRequest {
 pub struct ReceiveResponse {
     pub rx_buffers_used: Option<u8>,
     pub tx_buffers_free: Option<u8>,
-    pub unknown_1: Option<[u8; 2]>,
-    pub unknown_2: Option<[u8; 2]>,
+    pub unknown_a: Option<[u8; 2]>,
+    pub unknown_b: Option<[u8; 2]>,
     pub packet_number: u16,
     pub slot_counter: SlotCounter,
 }
@@ -107,7 +107,7 @@ impl ReceiveResponse {
         packet_number: u16,
     ) -> Result<(Self, pv::network::ReceivedPackets), InvalidReceiveResponse> {
         // Ensure we have at least a minimal length
-        if bytes.len() < 5 {
+        if bytes.len() < 2 {
             return Err(InvalidReceiveResponse::TooShort(5));
         };
 
@@ -122,11 +122,18 @@ impl ReceiveResponse {
         // Split off the rest
         let (_, mut rest) = bytes.split_at(2);
 
+        let expected_length = if status_type & 0x0001 == 0 { 1 } else { 0 }
+            + if status_type & 0x0002 == 0 { 1 } else { 0 }
+            + if status_type & 0x0004 == 0 { 2 } else { 0 }
+            + if status_type & 0x0008 == 0 { 2 } else { 0 }
+            + if status_type & 0x0010 == 0 { 2 } else { 1 }
+            + 2;
+        if rest.len() < expected_length {
+            return Err(InvalidReceiveResponse::TooShort(expected_length + 2));
+        }
+
         // Grab rx_buffers_used, if any
         let rx_buffers_used = if status_type & 0x0001 == 0 {
-            if rest.is_empty() {
-                return Err(InvalidReceiveResponse::TooShort(bytes.len() + 1));
-            }
             let (value, new_rest) = rest.split_at(1);
             rest = new_rest;
             Some(value[0])
@@ -136,9 +143,6 @@ impl ReceiveResponse {
 
         // Grab tx_buffers_free, if any
         let tx_buffers_free = if status_type & 0x0002 == 0 {
-            if rest.is_empty() {
-                return Err(InvalidReceiveResponse::TooShort(bytes.len() + 1));
-            }
             let (value, new_rest) = rest.split_at(1);
             rest = new_rest;
             Some(value[0])
@@ -148,9 +152,6 @@ impl ReceiveResponse {
 
         // Grab unknown_a, if any
         let unknown_a = if status_type & 0x0004 == 0 {
-            if rest.is_empty() {
-                return Err(InvalidReceiveResponse::TooShort(bytes.len() + 1));
-            }
             let (value, new_rest) = rest.split_at(2);
             rest = new_rest;
             Some([value[0], value[1]])
@@ -160,9 +161,6 @@ impl ReceiveResponse {
 
         // Grab unknown_b, if any
         let unknown_b = if status_type & 0x0008 == 0 {
-            if rest.is_empty() {
-                return Err(InvalidReceiveResponse::TooShort(bytes.len() + 1));
-            }
             let (value, new_rest) = rest.split_at(2);
             rest = new_rest;
             Some([value[0], value[1]])
@@ -172,25 +170,16 @@ impl ReceiveResponse {
 
         // Grab packet number, expanding as needed
         let packet_number = if status_type & 0x0010 == 0 {
-            if rest.is_empty() {
-                return Err(InvalidReceiveResponse::TooShort(bytes.len() + 1));
-            }
             let (value, new_rest) = rest.split_at(2);
             rest = new_rest;
             u16::from_be_bytes([value[0], value[1]])
         } else {
-            if rest.is_empty() {
-                return Err(InvalidReceiveResponse::TooShort(bytes.len() + 1));
-            }
             let (value, new_rest) = rest.split_at(1);
             rest = new_rest;
             interpret_packet_number_lo(value[0], packet_number)
         };
 
         // Grab slot counter
-        if rest.len() < 2 {
-            return Err(InvalidReceiveResponse::TooShort(bytes.len() + 2));
-        }
         let (slot_counter, new_rest) = rest.split_at(2);
         rest = new_rest;
         let slot_counter = SlotCounter::read_from_bytes(slot_counter).unwrap();
@@ -199,8 +188,8 @@ impl ReceiveResponse {
             Self {
                 rx_buffers_used,
                 tx_buffers_free,
-                unknown_1: unknown_a,
-                unknown_2: unknown_b,
+                unknown_a: unknown_a,
+                unknown_b: unknown_b,
                 packet_number,
                 slot_counter,
             },
@@ -275,8 +264,8 @@ mod tests {
                 ReceiveResponse {
                     rx_buffers_used: Some(0x04),
                     tx_buffers_free: Some(0x0E),
-                    unknown_1: Some([0x00, 0x01]),
-                    unknown_2: Some([0x02, 0x00]),
+                    unknown_a: Some([0x00, 0x01]),
+                    unknown_b: Some([0x02, 0x00]),
                     packet_number: 0x40FB,
                     slot_counter: 0x211B.into(),
                 },
@@ -290,8 +279,8 @@ mod tests {
                 ReceiveResponse {
                     rx_buffers_used: Some(0x02),
                     tx_buffers_free: None,
-                    unknown_1: None,
-                    unknown_2: None,
+                    unknown_a: None,
+                    unknown_b: None,
                     packet_number: 0x40FF,
                     slot_counter: 0x2122.into(),
                 },
@@ -305,8 +294,8 @@ mod tests {
                 ReceiveResponse {
                     rx_buffers_used: Some(0x00),
                     tx_buffers_free: None,
-                    unknown_1: None,
-                    unknown_2: None,
+                    unknown_a: None,
+                    unknown_b: None,
                     packet_number: 0x4101,
                     slot_counter: 0x2127.into(),
                 },
@@ -315,18 +304,53 @@ mod tests {
         );
 
         assert_eq!(
+            ReceiveResponse::read_from_bytes(&[0x00, 0xEE, 0x00, 0x41, 0x01, 0x21], 0x40FB),
+            Err(InvalidReceiveResponse::TooShort(7))
+        );
+        assert_eq!(
+            ReceiveResponse::read_from_bytes(&[0x00, 0xEE, 0x00, 0x41, 0x01], 0x40FB),
+            Err(InvalidReceiveResponse::TooShort(7))
+        );
+        assert_eq!(
+            ReceiveResponse::read_from_bytes(&[0x00, 0xEE, 0x00, 0x41], 0x40FB),
+            Err(InvalidReceiveResponse::TooShort(7))
+        );
+        assert_eq!(
+            ReceiveResponse::read_from_bytes(&[0x00, 0xEE, 0x00], 0x40FB),
+            Err(InvalidReceiveResponse::TooShort(7))
+        );
+        assert_eq!(
+            ReceiveResponse::read_from_bytes(&[0x00, 0xEE], 0x40FB),
+            Err(InvalidReceiveResponse::TooShort(7))
+        );
+
+        assert_eq!(
             ReceiveResponse::read_from_bytes(&[0x00, 0xFF, 0x03, 0x21, 0x31], 0x40FB),
             Ok((
                 ReceiveResponse {
                     rx_buffers_used: None,
                     tx_buffers_free: None,
-                    unknown_1: None,
-                    unknown_2: None,
+                    unknown_a: None,
+                    unknown_b: None,
                     packet_number: 0x4103,
                     slot_counter: 0x2131.into(),
                 },
                 ReceivedPackets(&[])
             ))
+        );
+
+        assert_eq!(
+            ReceiveResponse::read_from_bytes(&[0x00, 0xFF, 0x03, 0x21], 0x40FB),
+            Err(InvalidReceiveResponse::TooShort(5))
+        );
+        assert_eq!(
+            ReceiveResponse::read_from_bytes(&[0x00, 0xFF, 0x03], 0x40FB),
+            Err(InvalidReceiveResponse::TooShort(5))
+        );
+
+        assert_eq!(
+            ReceiveResponse::read_from_bytes(&[0x00, 0xFF], 0x40FB),
+            Err(InvalidReceiveResponse::TooShort(5))
         );
     }
 

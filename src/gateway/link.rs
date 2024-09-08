@@ -62,6 +62,10 @@ impl Frame {
         debug_assert_eq!(body.capacity(), initial_body_capacity);
         debug_assert_eq!(output_buffer.capacity(), initial_output_buffer_capacity);
 
+        // Ensure we didn't over-allocate
+        debug_assert_eq!(body.len(), initial_body_capacity);
+        debug_assert!(initial_output_buffer_capacity <= output_buffer.len() + 6);
+
         output_buffer
     }
 }

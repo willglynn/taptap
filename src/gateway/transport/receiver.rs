@@ -554,6 +554,23 @@ mod tests {
     }
 
     #[test]
+    fn reset_counters() {
+        let mut rx = Receiver::new(TestSink::default());
+
+        assert_eq!(rx.counters(), &Counters::default());
+
+        rx.frame(Frame {
+            address: 0x1201.into(),
+            frame_type: Type(0xffff),
+            payload: vec![],
+        });
+        assert_ne!(rx.counters(), &Counters::default());
+
+        rx.reset_counters();
+        assert_eq!(rx.counters(), &Counters::default());
+    }
+
+    #[test]
     fn enumeration_sequence() {
         // Receive the exchange from the doc
         let mut rx = gateway::link::Receiver::new(Receiver::new(TestSink::default()));
