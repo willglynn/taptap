@@ -38,7 +38,7 @@ impl Port {
             .parity(Parity::None)
             .stop_bits(StopBits::One)
             .flow_control(FlowControl::None)
-            .timeout(Duration::from_micros(0))
+            .timeout(Duration::from_millis(5))
             .open()
             .map(Port::new)
     }
@@ -50,7 +50,15 @@ impl Port {
 
 impl std::io::Read for Port {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        self.inner.read(buf)
+        loop {
+            match self.inner.read(buf) {
+                Ok(n) => return Ok(n),
+                Err(e) if e.kind() == std::io::ErrorKind::TimedOut => {
+                    continue;
+                }
+                Err(e) => return Err(e),
+            }
+        }
     }
 }
 
