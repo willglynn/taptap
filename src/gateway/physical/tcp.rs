@@ -1,5 +1,5 @@
 use std::io::{Read, Write};
-use std::net::{Shutdown, TcpStream, ToSocketAddrs};
+use std::net::{TcpStream, ToSocketAddrs};
 
 /// A TCP serial connection.
 #[derive(Debug)]
@@ -11,10 +11,6 @@ pub struct Connection {
 impl Connection {
     pub fn connect<A: ToSocketAddrs>(addr: A, readonly: bool) -> Result<Self, std::io::Error> {
         let socket = TcpStream::connect(addr)?;
-
-        if readonly {
-            socket.shutdown(Shutdown::Write)?;
-        }
 
         Ok(Self { socket, readonly })
     }
