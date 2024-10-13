@@ -188,8 +188,8 @@ impl ReceiveResponse {
             Self {
                 rx_buffers_used,
                 tx_buffers_free,
-                unknown_a: unknown_a,
-                unknown_b: unknown_b,
+                unknown_a,
+                unknown_b,
                 packet_number,
                 slot_counter,
             },
