@@ -1,7 +1,12 @@
 use crate::pv;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use std::fmt::Write;
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(
+    Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize, JsonSchema,
+)]
+#[serde(try_from = "String", into = "String")]
 pub struct Barcode(pub pv::LongAddress);
 
 const N2H: [u8; 16] = *b"0123456789ABCDEF";
@@ -77,6 +82,20 @@ impl std::fmt::Display for Barcode {
         }
 
         f.write_char(crc(self.0) as char)
+    }
+}
+
+impl TryFrom<String> for Barcode {
+    type Error = InvalidBarcodeError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        value.parse()
+    }
+}
+
+impl From<Barcode> for String {
+    fn from(value: Barcode) -> Self {
+        value.to_string()
     }
 }
 

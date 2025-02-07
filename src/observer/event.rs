@@ -1,4 +1,5 @@
 use super::*;
+use crate::barcode::Barcode;
 use crate::pv;
 use crate::pv::link::InvalidSlotNumber;
 use crate::pv::physical::RSSI;
@@ -39,6 +40,11 @@ pub struct Node {
     /// This value is permanent and globally unique, but it is not always known.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub address: Option<pv::LongAddress>,
+
+    /// The node's barcode.
+    ///
+    /// This value is permanent and globally unique, but it is not always known.
+    pub barcode: Option<Barcode>,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -105,6 +111,7 @@ mod tests {
         let node = Node {
             id: 1.try_into().unwrap(),
             address: None,
+            barcode: None,
         };
 
         let rssi = RSSI(100);

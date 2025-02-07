@@ -79,7 +79,13 @@ impl Observer {
             .and_then(|node_table| node_table.0.get(&id))
             .copied();
 
-        event::Node { id, address }
+        let barcode = address.map(|addr| addr.into());
+
+        event::Node {
+            id,
+            address,
+            barcode,
+        }
     }
 }
 
