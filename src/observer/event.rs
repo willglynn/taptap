@@ -44,6 +44,7 @@ pub struct Node {
     /// The node's barcode.
     ///
     /// This value is permanent and globally unique, but it is not always known.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub barcode: Option<Barcode>,
 }
 
