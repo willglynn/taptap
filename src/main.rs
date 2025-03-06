@@ -53,7 +53,7 @@ enum Commands {
 }
 
 #[derive(Args, Debug, Clone)]
-#[group(required = true, multiple = false)]
+#[group(required = true, multiple = true)]
 struct Source {
     /// The name of the serial port (try `taptap list-serial-ports`)
     #[arg(long, group = "mode", value_name = "SERIAL-PORT")]
