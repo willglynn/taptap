@@ -105,19 +105,29 @@ etc. It is a fast way to get started for some users, but consider wiring in a se
 
 ```console
 % taptap
-Usage: taptap <COMMAND>
+Usage: taptap <COMMAND> <OPTION>
 
 Commands:
-  observe            Observe the system, extracting data as it runs
-  list-serial-ports  List `--serial` ports
-  peek-bytes         Peek at the raw data flowing at the gateway physical layer
-  peek-frames        Peek at the assembled frames at the gateway link layer
-  peek-activity      Peek at the gateway transport and PV application layer activity
-  help               Print this message or the help of the given subcommand(s)
+  observe               Observe the system, extracting data as it runs
+  list-serial-ports     List `--serial` ports
+  peek-bytes            Peek at the raw data flowing at the gateway physical layer
+  peek-frames           Peek at the assembled frames at the gateway link layer
+  peek-activity         Peek at the gateway transport and PV application layer activity
+  help                  Print this message or the help of the given subcommand(s)
+  
 
 Options:
-  -h, --help     Print help
-  -V, --version  Print version
+  --serial              The name of the serial port (try `taptap list-serial-ports`) of the Modbus-to-serial device (mutually exclusive to --tcp)
+  --tcp                 The IP or hostname of the device which is providing Modbus-over-TCP service (mutually exclusive to --serial)
+  --reconnect_timeout   The time after which connection is re-established if no data is received in seconds (default is 0s, i.e. no timeout)
+  --reconnect-retry     The number of times to retry reconnecting before giving up (default is 0, i.e. infinite retries)
+  --reconnect-delay     The delay between reconnect attempts in seconds (default is 5s)
+  --port                If --tcp is specified, the port to which to connect (default is 502)
+  --keepalive_idle      If --tcp is specified, the idle time in seconds before TCP keepalive probes are sent (default is 30s)
+  --keepalive_interval  If --tcp is specified, the interval between individual TCP keepalive probes in seconds (default is 10s)
+  --keepalive_count     If --tcp is specified, the number of unacknowledged TCP keepalive probes before the connection is considered dead (default is 5)
+  -h, --help            Print help
+  -V, --version         Print version
 
 % taptap observe --tcp 172.21.3.44
 {"gateway":{"id":4609},"node":{"id":116},"timestamp":"2024-08-24T09:16:41.686961-05:00","voltage_in":30.6,"voltage_out":30.2,"current":6.94,"dc_dc_duty_cycle":1.0,"temperature":26.8,"rssi":132}

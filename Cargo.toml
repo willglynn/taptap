@@ -23,6 +23,7 @@ libc = "0.2.155"
 zerocopy = { version = "0.8.0-alpha.16", features = ["derive"] }
 flate2 = "1.0"
 log = "0.4.22"
+socket2 = { version = "0.5.10", features = ["all"] }
 
 # Optional library features
 serialport = { version = "4.4", optional = true }
