@@ -119,7 +119,7 @@ Commands:
 Options:
   --serial              The name of the serial port (try `taptap list-serial-ports`) of the Modbus-to-serial device (mutually exclusive to --tcp)
   --tcp                 The IP or hostname of the device which is providing Modbus-over-TCP service (mutually exclusive to --serial)
-  --reconnect_timeout   The time after which connection is re-established if no data is received in seconds (default is 0s, i.e. no timeout)
+  --reconnect-timeout   The time after which connection is re-established if no data is received in seconds (default is 0s, i.e. no timeout)
   --reconnect-retry     The number of times to retry reconnecting before giving up (default is 0, i.e. infinite retries)
   --reconnect-delay     The delay between reconnect attempts in seconds (default is 5s)
   --port                If --tcp is specified, the port to which to connect (default is 502)
