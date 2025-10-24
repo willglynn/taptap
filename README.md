@@ -108,24 +108,24 @@ etc. It is a fast way to get started for some users, but consider wiring in a se
 Usage: taptap <COMMAND> <OPTION>
 
 Commands:
-  observe               Observe the system, extracting data as it runs
-  list-serial-ports     List `--serial` ports
-  peek-bytes            Peek at the raw data flowing at the gateway physical layer
-  peek-frames           Peek at the assembled frames at the gateway link layer
-  peek-activity         Peek at the gateway transport and PV application layer activity
-  help                  Print this message or the help of the given subcommand(s)
+  list-serial-ports  List the serial ports available on this system
+  observe            Observe the system, extracting data as it runs
+  peek-bytes         Peek at the raw data flowing at the gateway physical layer
+  peek-frames        Peek at the assembled frames at the gateway link layer
+  peek-activity      Peek at the gateway transport and PV application layer activity
+  help               Print this message or the help of the given subcommand(s)
   
 
 Options:
-  --serial              The name of the serial port (try `taptap list-serial-ports`) of the Modbus-to-serial device (mutually exclusive to --tcp)
-  --tcp                 The IP or hostname of the device which is providing Modbus-over-TCP service (mutually exclusive to --serial)
-  --reconnect-timeout   The time after which connection is re-established if no data is received in seconds (default is 0s, i.e. no timeout)
-  --reconnect-retry     The number of times to retry reconnecting before giving up (default is 0, i.e. infinite retries)
-  --reconnect-delay     The delay between reconnect attempts in seconds (default is 5s)
-  --port                If --tcp is specified, the port to which to connect (default is 502)
-  --keepalive_idle      If --tcp is specified, the idle time in seconds before TCP keepalive probes are sent (default is 30s)
-  --keepalive_interval  If --tcp is specified, the interval between individual TCP keepalive probes in seconds (default is 10s)
-  --keepalive_count     If --tcp is specified, the number of unacknowledged TCP keepalive probes before the connection is considered dead (default is 5)
+      --serial <SERIAL-PORT>          The name of the serial port (try `taptap list-serial-ports`) of the Modbus-to-serial device (mutually exclusive to --tcp)
+      --tcp <DESTINATION>             The IP or hostname of the device which is providing Modbus-over-TCP service
+      --port <PORT NUMBER>            If --tcp is specified, the port to which to connect [default: 502]
+      --reconnect-timeout <SECONDS>   The time after which connection is re-established if no data is received in seconds (0 for no timeout) [default: 0]
+      --reconnect-retry <INT>         The number of times to retry reconnecting before giving up (0 for infinite retries) [default: 0]
+      --reconnect-delay <SECONDS>     The delay between reconnect attempts in seconds [default: 5]
+      --keepalive-idle <SECONDS>      If --tcp is specified, the idle time in seconds before keepalive probes are sent [default: 30]
+      --keepalive-interval <SECONDS>  If --tcp is specified, the interval between individual keepalive probes in seconds [default: 10]
+      --keepalive-count <SECONDS>     If --tcp is specified, the number of unacknowledged TCP probes before the connection is considered dead [default: 5]
   -h, --help            Print help
   -V, --version         Print version
 

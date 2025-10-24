@@ -81,7 +81,7 @@ struct Source {
     port: u16,
 
     /// The time after which connection is re-established if no data is received in seconds (0 for no timeout)
-    #[arg(long, required = false, value_name = "SECONDS", default_value = Some("0"))]
+    #[arg(long, required = false, value_name = "SECONDS", default_value = Some("60"))]
     reconnect_timeout: u64,
 
     /// The number of times to retry reconnecting before giving up (0 for infinite retries)
