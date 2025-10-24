@@ -22,6 +22,7 @@ struct Cli {
 
 #[derive(Subcommand, Debug, Clone)]
 enum Commands {
+    /// List the serial ports available on this system
     #[cfg(feature = "serialport")]
     ListSerialPorts,
 
@@ -54,43 +55,53 @@ enum Commands {
 }
 
 #[derive(Args, Debug, Clone)]
-#[group(required = true, multiple = true)]
+#[group(id="mode", required = true, multiple = true, args=&["serial", "tcp"])]
 struct Source {
     /// The name of the serial port (try `taptap list-serial-ports`) of the Modbus-to-serial device (mutually exclusive to --tcp)
-    #[arg(long, group = "mode", value_name = "SERIAL-PORT")]
+    #[arg(
+        long,
+        required = true,
+        conflicts_with = "tcp",
+        value_name = "SERIAL-PORT"
+    )]
     #[cfg(feature = "serialport")]
     serial: Option<String>,
 
     /// The IP or hostname of the device which is providing Modbus-over-TCP service
-    #[arg(long, group = "mode", value_name = "DESTINATION")]
+    #[arg(
+        long,
+        required = true,
+        conflicts_with = "serial",
+        value_name = "DESTINATION"
+    )]
     tcp: Option<String>,
 
-    /// The time after which connection is re-established if no data is received in seconds (default is 0s, i.e. no timeout)
-    #[arg(long, default_value = Some("0"))]
-    reconnect_timeout: u64,
-
-    /// The number of times to retry reconnecting before giving up (default is 0, i.e. infinite retries)
-    #[arg(long, default_value = Some("0"))]
-    reconnect_retry: u32,
-
-    /// The delay between reconnect attempts in seconds (default is 5s)
-    #[arg(long, default_value = Some("5"))]
-    reconnect_delay: u64,
-
-    /// If --tcp is specified, the port to which to connect (default is 502)
-    #[arg(long, requires = "tcp", default_value = Some("502"))]
+    /// If --tcp is specified, the port to which to connect
+    #[arg(long, required = false, requires = "tcp", conflicts_with = "serial", value_name = "PORT NUMBER", default_value = Some("502"))]
     port: u16,
 
-    /// If --tcp is specified, the idle time in seconds before keepalive probes are sent (default is 30s)
-    #[arg(long, requires = "tcp", default_value = Some("30"))]
+    /// The time after which connection is re-established if no data is received in seconds (0 for no timeout)
+    #[arg(long, required = false, value_name = "SECONDS", default_value = Some("0"))]
+    reconnect_timeout: u64,
+
+    /// The number of times to retry reconnecting before giving up (0 for infinite retries)
+    #[arg(long, required = false, value_name = "INT", default_value = Some("0"))]
+    reconnect_retry: u32,
+
+    /// The delay between reconnect attempts in seconds
+    #[arg(long, required = false, value_name = "SECONDS", default_value = Some("5"))]
+    reconnect_delay: u64,
+
+    /// If --tcp is specified, the idle time in seconds before keepalive probes are sent
+    #[arg(long, required = false, requires = "tcp", conflicts_with = "serial", value_name = "SECONDS", default_value = Some("30"))]
     keepalive_idle: u64,
 
-    /// If --tcp is specified, the interval between individual keepalive probes in seconds (default is 10s)
-    #[arg(long, requires = "tcp", default_value = Some("10"))]
+    /// If --tcp is specified, the interval between individual keepalive probes in seconds
+    #[arg(long, required = false, requires = "tcp", conflicts_with = "serial", value_name = "SECONDS", default_value = Some("10"))]
     keepalive_interval: u64,
 
-    /// If --tcp is specified, the number of unacknowledged TCP probes before the connection is considered dead (default is 5)
-    #[arg(long, requires = "tcp", default_value = Some("5"))]
+    /// If --tcp is specified, the number of unacknowledged TCP probes before the connection is considered dead
+    #[arg(long, required = false, requires = "tcp", conflicts_with = "serial", value_name = "SECONDS", default_value = Some("5"))]
     keepalive_count: u32,
 }
 
