@@ -14,6 +14,7 @@ pub struct NodeTableRequest {
 #[derive(Debug, FromBytes, Immutable, KnownLayout, Unaligned)]
 #[repr(C)]
 pub struct NodeTableResponse {
+    pub start_at: NodeAddress,
     pub entries_count: big_endian::U16,
     pub entries: [NodeTableResponseEntry],
 }

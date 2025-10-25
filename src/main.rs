@@ -30,6 +30,10 @@ enum Commands {
     Observe {
         #[command(flatten)]
         source: Source,
+
+        /// Path of the JSON file to provide persistent storage for the infrastructure topology data
+        #[arg(long, required = false, value_name = "FILE", default_value = Some(""))]
+        persistent_file: String,
     },
 
     /// Peek at the raw data flowing at the gateway physical layer
@@ -260,7 +264,10 @@ fn main() {
             peek_activity(source);
         }
 
-        Commands::Observe { source } => observe(source),
+        Commands::Observe {
+            source,
+            persistent_file,
+        } => observe(source, persistent_file),
 
         #[cfg(feature = "serialport")]
         Commands::ListSerialPorts => {
@@ -461,8 +468,8 @@ fn peek_activity(source: Source) {
     source.read(|slice| rx.extend_from_slice(slice));
 }
 
-fn observe(source: Source) {
-    let observer = taptap::observer::Observer::default();
+fn observe(source: Source, persistent_file: String) {
+    let observer = taptap::observer::Observer::new(persistent_file);
     let mut rx = gateway::link::Receiver::new(gateway::transport::Receiver::new(
         pv::application::Receiver::new(observer),
     ));

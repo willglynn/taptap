@@ -128,18 +128,40 @@ Options:
       --keepalive-count <SECONDS>     If --tcp is specified, the number of unacknowledged TCP probes before the connection is considered dead [default: 5]
   -h, --help            Print help
   -V, --version         Print version
-
-% taptap observe --tcp 172.21.3.44
-{"gateway":{"id":4609},"node":{"id":116},"timestamp":"2024-08-24T09:16:41.686961-05:00","voltage_in":30.6,"voltage_out":30.2,"current":6.94,"dc_dc_duty_cycle":1.0,"temperature":26.8,"rssi":132}
-{"gateway":{"id":4609},"node":{"id":116},"timestamp":"2024-08-24T09:17:01.691683-05:00","voltage_in":30.75,"voltage_out":30.4,"current":6.895,"dc_dc_duty_cycle":1.0,"temperature":26.8,"rssi":132}
-{"gateway":{"id":4609},"node":{"id":82},"timestamp":"2024-08-24T09:16:41.686961-05:00","voltage_in":30.55,"voltage_out":30.2,"current":6.845,"dc_dc_duty_cycle":1.0,"temperature":29.3,"rssi":147}
-{"gateway":{"id":4609},"node":{"id":82},"timestamp":"2024-08-24T09:17:01.691683-05:00","voltage_in":30.95,"voltage_out":30.6,"current":6.765,"dc_dc_duty_cycle":1.0,"temperature":29.3,"rssi":147}
-{"gateway":{"id":4609},"node":{"id":19},"timestamp":"2024-08-24T09:16:41.686961-05:00","voltage_in":30.35,"voltage_out":29.9,"current":6.865,"dc_dc_duty_cycle":1.0,"temperature":28.7,"rssi":147}
-{"gateway":{"id":4609},"node":{"id":19},"timestamp":"2024-08-24T09:17:01.691683-05:00","voltage_in":29.85,"voltage_out":29.4,"current":7.005,"dc_dc_duty_cycle":1.0,"temperature":28.7,"rssi":147}
-{"gateway":{"id":4609},"node":{"id":121},"timestamp":"2024-08-24T09:16:41.686961-05:00","voltage_in":29.8,"voltage_out":21.9,"current":5.25,"dc_dc_duty_cycle":0.7607843137254902,"temperature":29.8,"rssi":120}
-{"gateway":{"id":4609},"node":{"id":121},"timestamp":"2024-08-24T09:17:01.691683-05:00","voltage_in":30.55,"voltage_out":22.8,"current":5.3,"dc_dc_duty_cycle":0.7725490196078432,"temperature":29.8,"rssi":120}
 ```
 
-As of this initial version, the `observe` subcommand emits `taptap::observer::Event`s to standard output as JSON rather
-than emitting metrics for InfluxDB or Prometheus, and it does not persist its own state, meaning the gateway and nodes
-are identified by their internal IDs rather than by barcode. These are the next two features to add.
+## Usage
+
+Most useful for PV panels monitoring is `observe` subcommand. As of this version, the `observe` emits `taptap::observer::Event`s to standard output:
+
+```
+% taptap observe --tcp 172.21.3.44
+
+{"event_type": "power_report", "gateway": 4609,"node":116,"timestamp":"2024-08-24T09:16:41.686961-05:00","voltage_in":30.6,"voltage_out":30.2,"current":6.94,"dc_dc_duty_cycle":1.0,"temperature":26.8,"rssi":132}
+{"event_type": "power_report", "gateway": 4609,"node":116,"timestamp":"2024-08-24T09:17:01.691683-05:00","voltage_in":30.75,"voltage_out":30.4,"current":6.895,"dc_dc_duty_cycle":1.0,"temperature":26.8,"rssi":132}
+{"event_type": "power_report", "gateway": 4609,"node":82,"timestamp":"2024-08-24T09:16:41.686961-05:00","voltage_in":30.55,"voltage_out":30.2,"current":6.845,"dc_dc_duty_cycle":1.0,"temperature":29.3,"rssi":147}
+{"event_type": "power_report", "gateway": 4609,"node":82,"timestamp":"2024-08-24T09:17:01.691683-05:00","voltage_in":30.95,"voltage_out":30.6,"current":6.765,"dc_dc_duty_cycle":1.0,"temperature":29.3,"rssi":147}
+{"event_type": "power_report", "gateway": 4609,"node":19,"timestamp":"2024-08-24T09:16:41.686961-05:00","voltage_in":30.35,"voltage_out":29.9,"current":6.865,"dc_dc_duty_cycle":1.0,"temperature":28.7,"rssi":147}
+{"event_type": "power_report", "gateway": 4609,"node":19,"timestamp":"2024-08-24T09:17:01.691683-05:00","voltage_in":29.85,"voltage_out":29.4,"current":7.005,"dc_dc_duty_cycle":1.0,"temperature":28.7,"rssi":147}
+{"event_type": "power_report", "gateway": 4609,"node":121,"timestamp":"2024-08-24T09:16:41.686961-05:00","voltage_in":29.8,"voltage_out":21.9,"current":5.25,"dc_dc_duty_cycle":0.7607843137254902,"temperature":29.8,"rssi":120}
+{"event_type": "power_report", "gateway": 4609,"node":121,"timestamp":"2024-08-24T09:17:01.691683-05:00","voltage_in":30.55,"voltage_out":22.8,"current":5.3,"dc_dc_duty_cycle":0.7725490196078432,"temperature":29.8,"rssi":120}
+```
+
+Also when frames with gateways or nodes identification are received `taptap::observer::PersistentStateReport` is emitted to tha standard output, including gateways and nodes addresses, versions and barcodes (values are redacted in the sample bellow):
+```
+% taptap observe --tcp 172.21.3.44
+
+{"event_type":"infrastructure_report",
+gateways":{"4609":{"address":"04:C0:5B:30:ZZ:ZZ:ZZ:ZZ","version":"Mgate Version UUUUUUUUUUU\r"},"4610":{"address":"04:C0:5B:30:ZZ:ZZ:ZZ:ZZ","version":""}},"nodes":{"4609":{"2":{"address":"04:C0:5B:40:XX:XX:XX:XX","barcode":"4-YYYYYYY"},"3":{"address":"04:C0:5B:40:XX:XX:XX:XX","barcode":"4-YYYYYYY"},"4":{"address":"04:C0:5B:40:XX:XX:XX:XX","barcode":"4-YYYYYYY"},"5":{"address":"04:C0:5B:40:XX:XX:XX:XX","barcode":"4-YYYYYYY"},"6":{"address":"04:C0:5B:40:XX:XX:XX:XX","barcode":"4-YYYYYYY"},"7":{"address":"04:C0:5B:40:XX:XX:XX:XX","barcode":"4-YYYYYYY"},"8":{"address":"04:C0:5B:40:XX:XX:XX:XX","barcode":"4-YYYYYYY"},"9":{"address":"04:C0:5B:40:XX:XX:XX:XX","barcode":"4-YYYYYYY"},"11":{"address":"04:C0:5B:40:XX:XX:XX:XX","barcode":"4-YYYYYYY"},"12":{"address":"04:C0:5B:40:XX:XX:XX:XX","barcode":"4-YYYYYYY"},"13":{"address":"04:C0:5B:40:XX:XX:XX:XX","barcode":"4-YYYYYYY"},"14":{"address":"04:C0:5B:40:XX:XX:XX:XX","barcode":"4-YYYYYYY"},"15":{"address":"04:C0:5B:40:XX:XX:XX:XX","barcode":"4-YYYYYYY"},"16":{"address":"04:C0:5B:40:XX:XX:XX:XX","barcode":"4-YYYYYYY"},"17":{"address":"04:C0:5B:40:XX:XX:XX:XX","barcode":"4-YYYYYYY"},"18":{"address":"04:C0:5B:40:XX:XX:XX:XX","barcode":"4-YYYYYYY"}}}}
+```
+
+## Topology Persistence
+
+As such gateway and nodes identification frames are transmitted rarely (in my experience those are not transmitted during PV panels operation during daytime, but rather after sundown when controller probably starts to execute some housekeeping actions), this version now supports storing infrastructure data in the JSON file, which is used as persistent store, ensuring that such data are not lost during restarts. At taptap start the JSON file is read and `taptap::observer::PersistentStateReport` is immediately emitted from the latest stored state. JSON file is updated immediately after any update message is received. To use persistent function you need to provide runtime argument passing JSON file path (example):
+
+```
+taptap observe --tcp 172.21.3.44 --persistent-file ./taptap.json
+```
+
+## Note
+**This version doesn't support and probably never will any messages parsing, corelation or direct database sink to store emitted messages. I like 'KISS' (Keep It Stupid, Simple) principles and I strongly prefer to have simple atomic tool to output Tigo CCA messages and than use more suitable programs for messages parsing, corelation and storing in some backend storage. Take a look into Logstash, FluentD, of if you looking for MQTT bridge you can checkout my [taptap-mqqt project](https://github.com/litinoveweedle/taptap-mqtt/)**
