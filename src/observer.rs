@@ -80,13 +80,6 @@ impl Observer {
             return;
         }
         let file_path = PathBuf::from(&self.persistent_file);
-        if !file_path.is_file() {
-            log::info!(
-                "persistent file: {} not found, starting with empty state",
-                self.persistent_file
-            );
-            return;
-        }
         match File::open(&file_path).and_then(|mut file| {
             let mut string = String::new();
             file.read_to_string(&mut string)?;
@@ -101,6 +94,12 @@ impl Observer {
                 // Print out infrastructure event
                 let infrastructure_event = PersistentStateEvent::from(&self.persistent_state);
                 println!("{}", serde_json::to_string(&infrastructure_event).unwrap());
+            }
+            Err(e) if e.kind() == io::ErrorKind::NotFound => {
+                log::info!(
+                    "persistent file: {} not found, starting with empty state",
+                    self.persistent_file
+                );
             }
             Err(e) => {
                 log::warn!(
@@ -157,15 +156,6 @@ impl Observer {
             );
             return;
         }
-
-        if let Err(e) = file.flush() {
-            log::error!(
-                "Failed to flush temporary file {}: {}",
-                tmp_path.display(),
-                e
-            );
-            return;
-        };
 
         // Rename into place
         if let Err(e) = std::fs::rename(&tmp_path, &file_path) {

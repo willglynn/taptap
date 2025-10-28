@@ -19,10 +19,7 @@ impl Connection {
 
         enable_keepalive(&socket, keepalive)?;
 
-        Ok(Self {
-            socket,
-            readonly,
-        })
+        Ok(Self { socket, readonly })
     }
 }
 
@@ -61,13 +58,7 @@ fn enable_keepalive(socket: &TcpStream, cfg: TcpKeepaliveConfig) -> std::io::Res
 
     let mut keepalive = TcpKeepalive::new();
 
-    //if let Some(idle) = cfg.idle {
-    //    keepalive = keepalive.with_time(idle);
-    //}
     keepalive = keepalive.with_time(cfg.idle);
-    //if let Some(interval) = cfg.interval {
-    //    keepalive = keepalive.with_interval(interval);
-    //}
     keepalive = keepalive.with_interval(cfg.interval);
     // Note: .with_retries() is not available on all platforms.
     #[cfg(any(
@@ -80,9 +71,6 @@ fn enable_keepalive(socket: &TcpStream, cfg: TcpKeepaliveConfig) -> std::io::Res
     if true {
         keepalive = keepalive.with_retries(cfg.count);
     }
-    //if let Some(count) = cfg.count {
-    //    keepalive = keepalive.with_retries(count);
-    //}
 
     sock.set_tcp_keepalive(&keepalive)?;
 

@@ -95,18 +95,6 @@ struct Source {
     /// The delay between reconnect attempts in seconds
     #[arg(long, required = false, value_name = "SECONDS", default_value = Some("5"))]
     reconnect_delay: u64,
-
-    /// If --tcp is specified, the idle time in seconds before keepalive probes are sent
-    #[arg(long, required = false, requires = "tcp", conflicts_with = "serial", value_name = "SECONDS", default_value = Some("30"))]
-    keepalive_idle: u64,
-
-    /// If --tcp is specified, the interval between individual keepalive probes in seconds
-    #[arg(long, required = false, requires = "tcp", conflicts_with = "serial", value_name = "SECONDS", default_value = Some("10"))]
-    keepalive_interval: u64,
-
-    /// If --tcp is specified, the number of unacknowledged TCP probes before the connection is considered dead
-    #[arg(long, required = false, requires = "tcp", conflicts_with = "serial", value_name = "SECONDS", default_value = Some("5"))]
-    keepalive_count: u32,
 }
 
 impl Source {
@@ -231,9 +219,10 @@ impl From<Source> for config::SourceConfig {
                 hostname: name,
                 port: value.port,
                 mode: config::ConnectionMode::ReadOnly,
-                keepalive_idle: value.keepalive_idle,
-                keepalive_interval: value.keepalive_interval,
-                keepalive_count: value.keepalive_count,
+                // hardcode TCP keepalive setting here, might need tuning
+                keepalive_idle: 30,
+                keepalive_interval: 10,
+                keepalive_count: 5,
             }
             .into(),
             _ => {

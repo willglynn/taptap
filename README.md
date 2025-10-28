@@ -123,9 +123,6 @@ Options:
       --reconnect-timeout <SECONDS>   The time after which connection is re-established if no data is received in seconds (0 for no timeout) [default: 0]
       --reconnect-retry <INT>         The number of times to retry reconnecting before giving up (0 for infinite retries) [default: 0]
       --reconnect-delay <SECONDS>     The delay between reconnect attempts in seconds [default: 5]
-      --keepalive-idle <SECONDS>      If --tcp is specified, the idle time in seconds before keepalive probes are sent [default: 30]
-      --keepalive-interval <SECONDS>  If --tcp is specified, the interval between individual keepalive probes in seconds [default: 10]
-      --keepalive-count <SECONDS>     If --tcp is specified, the number of unacknowledged TCP probes before the connection is considered dead [default: 5]
   -h, --help            Print help
   -V, --version         Print version
 ```

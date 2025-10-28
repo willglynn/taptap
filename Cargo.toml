@@ -2,7 +2,7 @@
 name = "taptap"
 description = "An implementation of the Tigo TAP protocol"
 authors = ["Will Glynn", "LiTinOveWeedle"]
-repository = "https://github.com/litinoveweedle/taptap"
+repository = "https://github.com/willglynn/taptap"
 keywords = ["solar", "Tigo"]
 readme = "README.md"
 version = "0.1.1"

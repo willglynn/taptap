@@ -7,7 +7,7 @@ use chrono::{DateTime, Local};
 
 /// An event produced by an observer.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename = "snake_case")]
+#[serde(rename = "snake_case", tag = "type")]
 pub enum Event {
     PowerReport(PowerReportEvent),
 }
@@ -48,9 +48,8 @@ pub struct Node {
     pub barcode: Option<Barcode>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct PowerReportEvent {
-    pub event_type: String,
     /// The gateway through which the power report was received.
     pub gateway: GatewayID,
     /// The node sending the power report.
@@ -86,7 +85,6 @@ impl PowerReportEvent {
         } as i16;
 
         Ok(Self {
-            event_type: "power_report".to_string(),
             gateway,
             node,
             timestamp: timestamp.into(),
@@ -107,7 +105,6 @@ mod tests {
 
     #[test]
     fn negative_temperature() {
-        let event_type = "power_report".to_string();
         let gateway = GatewayID::try_from(1).unwrap();
         let node = NodeID::try_from(1).unwrap();
         let rssi = RSSI(100);
@@ -129,7 +126,6 @@ mod tests {
 
         let actual = serde_json::to_string(&power_report_event).unwrap();
         let expected = serde_json::to_string(&PowerReportEvent {
-            event_type,
             gateway,
             node,
             timestamp: timestamp.into(),
