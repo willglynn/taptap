@@ -63,3 +63,32 @@ fn enumeration_sequence() {
         ),]
     );
 }
+
+#[test]
+fn issue_20_initial() {
+    let mut rx = gateway::link::Receiver::new(gateway::transport::Receiver::new(
+        pv::application::Receiver::new(Observer::default()),
+    ));
+
+    rx.extend_from_slice(crate::test_data::ISSUE_20_INITIAL);
+
+    {
+        let link_counters = rx.counters();
+        assert!(link_counters.noise < 10);
+        assert_eq!(link_counters.giants, 0);
+        assert_eq!(link_counters.runts, 0);
+        assert_eq!(link_counters.checksums, 0);
+    }
+
+    {
+        let transport_counters = rx.sink().counters();
+        assert_eq!(transport_counters.invalid_receive_responses, 0);
+        assert!(transport_counters.receive_responses > 0);
+    }
+
+    {
+        let pv_counters = rx.sink().sink().counters();
+        assert_eq!(pv_counters.invalid_power_reports, 0);
+        assert!(pv_counters.power_reports > 0);
+    }
+}

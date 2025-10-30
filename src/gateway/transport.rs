@@ -115,7 +115,7 @@ impl ReceiveResponse {
         let status_type = U16::ref_from_bytes(&bytes[0..2]).unwrap().get();
 
         // Ensure it matches the known patterns
-        if status_type & 0xffe0 != 0x00e0 {
+        if status_type & 0x00e0 != 0x00e0 {
             return Err(InvalidReceiveResponse::UnknownStatusType(status_type));
         }
 

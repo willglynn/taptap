@@ -9,6 +9,6 @@ pub use packet_type::PacketType;
 mod node_table;
 pub use node_table::{NodeTableRequest, NodeTableResponse, NodeTableResponseEntry};
 mod power_report;
-pub use power_report::{PowerReport, U12Pair};
+pub use power_report::{PowerReport, PowerReport15, U12Pair};
 mod topology_report;
 pub use topology_report::TopologyReport;

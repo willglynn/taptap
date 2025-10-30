@@ -20,6 +20,16 @@ pub struct PowerReport {
 #[repr(C)]
 pub struct U12Pair(pub [u8; 3]);
 
+/// A 15-byte power report.
+#[derive(
+    Debug, Copy, Clone, Eq, PartialEq, FromBytes, Immutable, IntoBytes, KnownLayout, Unaligned,
+)]
+#[repr(C)]
+pub struct PowerReport15 {
+    pub power_report: PowerReport,
+    pub unknown: [u8; 2],
+}
+
 impl std::fmt::Debug for U12Pair {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         let (a, b): (u16, u16) = (*self).into();

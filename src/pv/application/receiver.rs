@@ -30,17 +30,17 @@ pub trait Sink {
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Default)]
 pub struct Counters {
-    invalid_received_packet_node_ids: u64,
-    invalid_power_reports: u64,
-    power_reports: u64,
-    invalid_topology_reports: u64,
-    topology_reports: u64,
-    invalid_node_table_requests: u64,
-    invalid_node_table_responses: u64,
-    invalid_string_commands: u64,
-    string_commands: u64,
-    invalid_string_responses: u64,
-    string_responses: u64,
+    pub invalid_received_packet_node_ids: u64,
+    pub invalid_power_reports: u64,
+    pub power_reports: u64,
+    pub invalid_topology_reports: u64,
+    pub topology_reports: u64,
+    pub invalid_node_table_requests: u64,
+    pub invalid_node_table_responses: u64,
+    pub invalid_string_commands: u64,
+    pub string_commands: u64,
+    pub invalid_string_responses: u64,
+    pub string_responses: u64,
 }
 
 #[derive(Debug)]
@@ -180,6 +180,10 @@ impl<S: gateway::transport::Sink + Sink> gateway::transport::Sink for Receiver<S
                 if let Ok(power_report) = PowerReport::ref_from_bytes(data) {
                     self.counters.power_reports += 1;
                     self.sink.power_report(gateway_id, node_id, power_report);
+                } else if let Ok(power_report_15) = PowerReport15::ref_from_bytes(data) {
+                    self.counters.power_reports += 1;
+                    self.sink
+                        .power_report(gateway_id, node_id, &power_report_15.power_report);
                 } else {
                     self.counters.invalid_power_reports += 1;
                 }
