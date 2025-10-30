@@ -90,10 +90,8 @@ impl Observer {
             return;
         };
 
-        match File::open(&path).and_then(|mut file| {
-            let mut string = String::new();
-            file.read_to_string(&mut string)?;
-            serde_json::from_str(&string).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
+        match File::open(&path).and_then(|file| {
+            serde_json::from_reader(file).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
         }) {
             Ok(data) => {
                 self.persistent_state = data;
