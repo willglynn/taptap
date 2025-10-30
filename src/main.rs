@@ -124,7 +124,7 @@ impl Source {
                     if self.reconnect_retry != 0 && reconnect_retry > self.reconnect_retry {
                         log::warn!(
                             "maximum reconnect retries ({}) exceeded, exiting",
-                            self.reconnect_retry.to_string()
+                            self.reconnect_retry
                         );
                         exit(2);
                     } else {

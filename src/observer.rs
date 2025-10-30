@@ -25,7 +25,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
 use std::fs::File;
-use std::io::{self, Read};
+use std::io;
 use std::path::PathBuf;
 use std::time::SystemTime;
 
@@ -84,13 +84,13 @@ impl Observer {
     // If a persistent state JSON file exists, prefer its contents over the provided
     // `persistent_state` argument. This allows the observer to restore previously
     // captured infrastructure information across runs.
-    pub fn read_persistent_state(&mut self) -> () {
+    pub fn read_persistent_state(&mut self) {
         let Some(path) = &self.state_file else {
             log::info!("persistent file is not specified, will not keep persistent state");
             return;
         };
 
-        match File::open(&path).and_then(|file| {
+        match File::open(path).and_then(|file| {
             serde_json::from_reader(file).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
         }) {
             Ok(data) => {
@@ -144,7 +144,7 @@ impl Observer {
         std::fs::write(&tmp_path, data).map_err(WritePersistentStateError::Write)?;
 
         // Rename into place
-        std::fs::rename(&tmp_path, &file_path).map_err(|e| WritePersistentStateError::Rename(e))?;
+        std::fs::rename(&tmp_path, file_path).map_err(WritePersistentStateError::Rename)?;
 
         // Print out infrastructure event
         let infrastructure_event = PersistentStateEvent::from(&self.persistent_state);
