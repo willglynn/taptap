@@ -43,7 +43,7 @@ use slot_clock::SlotClock;
 /// An observer, monitoring a controller interacting with one or more TAPs via an RS-485 interface.
 #[derive(Debug)]
 pub struct Observer {
-    persistent_file: String,
+    state_file: Option<PathBuf>,
     persistent_state: PersistentState,
     enumeration_state: Option<EnumerationState>,
     captured_slot_counters: BTreeMap<GatewayID, SystemTime>,
@@ -53,7 +53,7 @@ pub struct Observer {
 
 impl Default for Observer {
     fn default() -> Self {
-        Observer::new(String::new())
+        Observer::new(None)
     }
 }
 
@@ -68,9 +68,9 @@ enum WritePersistentStateError {
 }
 
 impl Observer {
-    pub fn new(persistent_file: String) -> Self {
+    pub fn new(state_file: Option<PathBuf>) -> Self {
         let mut observer = Observer {
-            persistent_file,
+            state_file,
             persistent_state: PersistentState::default(),
             enumeration_state: None,
             captured_slot_counters: Default::default(),
@@ -85,12 +85,12 @@ impl Observer {
     // `persistent_state` argument. This allows the observer to restore previously
     // captured infrastructure information across runs.
     pub fn read_persistent_state(&mut self) -> () {
-        if self.persistent_file.is_empty() {
+        let Some(path) = &self.state_file else {
             log::info!("persistent file is not specified, will not keep persistent state");
             return;
-        }
-        let file_path = PathBuf::from(&self.persistent_file);
-        match File::open(&file_path).and_then(|mut file| {
+        };
+
+        match File::open(&path).and_then(|mut file| {
             let mut string = String::new();
             file.read_to_string(&mut string)?;
             serde_json::from_str(&string).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
@@ -99,7 +99,7 @@ impl Observer {
                 self.persistent_state = data;
                 log::info!(
                     "persistent state successfully loaded from persistent file {}",
-                    file_path.display()
+                    path.display()
                 );
                 // Print out infrastructure event
                 let infrastructure_event = PersistentStateEvent::from(&self.persistent_state);
@@ -108,13 +108,13 @@ impl Observer {
             Err(e) if e.kind() == io::ErrorKind::NotFound => {
                 log::info!(
                     "persistent file: {} not found, starting with empty state",
-                    self.persistent_file
+                    path.display()
                 );
             }
             Err(e) => {
                 log::warn!(
                     "failed to read persistent state from {}: {}",
-                    self.persistent_file,
+                    path.display(),
                     e
                 );
             }
@@ -131,7 +131,11 @@ impl Observer {
     }
 
     fn try_write_persistent_state(&self) -> Result<(), WritePersistentStateError> {
-        let file_path = PathBuf::from(&self.persistent_file);
+        let Some(file_path) = &self.state_file else {
+            // No state file => nothing to write
+            return Ok(());
+        };
+
         let tmp_path = file_path.with_extension("tmp");
 
         // Serialize

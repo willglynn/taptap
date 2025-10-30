@@ -3,6 +3,7 @@ use log::LevelFilter;
 use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
 use std::io::{ErrorKind, Read, Write};
+use std::path::PathBuf;
 use std::process::exit;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
@@ -32,8 +33,8 @@ enum Commands {
         source: Source,
 
         /// Path of the JSON file to provide persistent storage for the infrastructure topology data
-        #[arg(long, required = false, value_name = "FILE", default_value = Some(""))]
-        persistent_file: String,
+        #[arg(long, required = false, value_name = "FILE", default_value = None)]
+        state_file: Option<PathBuf>,
     },
 
     /// Peek at the raw data flowing at the gateway physical layer
@@ -253,10 +254,7 @@ fn main() {
             peek_activity(source);
         }
 
-        Commands::Observe {
-            source,
-            persistent_file,
-        } => observe(source, persistent_file),
+        Commands::Observe { source, state_file } => observe(source, state_file),
 
         #[cfg(feature = "serialport")]
         Commands::ListSerialPorts => {
@@ -457,8 +455,8 @@ fn peek_activity(source: Source) {
     source.read(|slice| rx.extend_from_slice(slice));
 }
 
-fn observe(source: Source, persistent_file: String) {
-    let observer = taptap::observer::Observer::new(persistent_file);
+fn observe(source: Source, state_file: Option<PathBuf>) {
+    let observer = taptap::observer::Observer::new(state_file);
     let mut rx = gateway::link::Receiver::new(gateway::transport::Receiver::new(
         pv::application::Receiver::new(observer),
     ));
