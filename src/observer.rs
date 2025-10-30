@@ -25,7 +25,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
 use std::fs::File;
-use std::io::{self, Read, Write};
+use std::io::{self, Read};
 use std::path::PathBuf;
 use std::time::SystemTime;
 
@@ -55,6 +55,16 @@ impl Default for Observer {
     fn default() -> Self {
         Observer::new(String::new())
     }
+}
+
+#[derive(thiserror::Error, Debug)]
+enum WritePersistentStateError {
+    #[error("error serializing state: {0}")]
+    Serialization(serde_json::Error),
+    #[error("error writing state file: {0}")]
+    Write(io::Error),
+    #[error("error renaming state file: {0}")]
+    Rename(io::Error),
 }
 
 impl Observer {
@@ -114,68 +124,36 @@ impl Observer {
     /// Write the current `persistent_state` to disk as JSON.
     ///
     /// Writes atomically by writing to a temporary file and renaming it into place.
-    pub fn write_persistent_state(&self) -> () {
-        let infrastructure_event = PersistentStateEvent::from(&self.persistent_state);
-        match serde_json::to_string(&infrastructure_event) {
-            Ok(event_str) => println!("{}", event_str),
-            Err(e) => {
-                log::error!("Failed to serialize infrastructure event: {}", e);
-            }
+    pub(crate) fn write_persistent_state(&self) {
+        if let Err(e) = self.try_write_persistent_state() {
+            log::error!("failed to persist state: {}", e);
         }
+    }
 
+    fn try_write_persistent_state(&self) -> Result<(), WritePersistentStateError> {
         let file_path = PathBuf::from(&self.persistent_file);
         let tmp_path = file_path.with_extension("tmp");
 
         // Serialize
-        let data = match serde_json::to_vec_pretty(&self.persistent_state) {
-            Ok(data) => data,
-            Err(e) => {
-                log::error!("Failed to serialize persistent state: {}", e);
-                return;
-            }
-        };
+        let data = serde_json::to_vec_pretty(&self.persistent_state)
+            .map_err(WritePersistentStateError::Serialization)?;
 
         // Write to temporary file
-        let mut file = match File::create(&tmp_path) {
-            Ok(file) => file,
-            Err(e) => {
-                log::error!(
-                    "Failed to create temporary file {}: {}",
-                    tmp_path.display(),
-                    e
-                );
-                return;
-            }
-        };
-
-        if let Err(e) = file.write_all(&data) {
-            log::error!(
-                "Failed to write data to temporary file {}: {}",
-                tmp_path.display(),
-                e
-            );
-            return;
-        }
+        std::fs::write(&tmp_path, data).map_err(WritePersistentStateError::Write)?;
 
         // Rename into place
-        if let Err(e) = std::fs::rename(&tmp_path, &file_path) {
-            log::error!(
-                "Failed to rename temporary file {} to {}: {}",
-                tmp_path.display(),
-                file_path.display(),
-                e
-            );
-            return;
-        };
+        std::fs::rename(&tmp_path, &file_path).map_err(|e| WritePersistentStateError::Rename(e))?;
 
         // Print out infrastructure event
         let infrastructure_event = PersistentStateEvent::from(&self.persistent_state);
         println!("{}", serde_json::to_string(&infrastructure_event).unwrap());
 
         log::debug!(
-            "Successfully wrote persistent state to persistent file {}",
+            "wrote persistent state to state file {}",
             file_path.display()
         );
+
+        Ok(())
     }
 
     pub fn persistent_state(&self) -> &PersistentState {
