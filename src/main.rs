@@ -2,9 +2,11 @@ use clap::{Args, Parser, Subcommand};
 use log::LevelFilter;
 use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
-use std::io::{Read, Write};
+use std::io::{ErrorKind, Read, Write};
+use std::path::PathBuf;
 use std::process::exit;
-use taptap::gateway::physical::Connection;
+use std::thread::sleep;
+use std::time::{Duration, Instant};
 use taptap::gateway::{physical, Frame, GatewayID};
 use taptap::pv::application::{NodeTableResponseEntry, PowerReport, TopologyReport};
 use taptap::pv::network::{NodeAddress, ReceivedPacketHeader};
@@ -21,6 +23,7 @@ struct Cli {
 
 #[derive(Subcommand, Debug, Clone)]
 enum Commands {
+    /// List the serial ports available on this system
     #[cfg(feature = "serialport")]
     ListSerialPorts,
 
@@ -28,6 +31,10 @@ enum Commands {
     Observe {
         #[command(flatten)]
         source: Source,
+
+        /// Path of the JSON file to provide persistent storage for the infrastructure topology data
+        #[arg(long, required = false, value_name = "FILE", default_value = None)]
+        state_file: Option<PathBuf>,
     },
 
     /// Peek at the raw data flowing at the gateway physical layer
@@ -53,31 +60,150 @@ enum Commands {
 }
 
 #[derive(Args, Debug, Clone)]
-#[group(required = true, multiple = false)]
+#[group(id="mode", required = true, multiple = true, args=&["serial", "tcp"])]
 struct Source {
-    /// The name of the serial port (try `taptap list-serial-ports`)
-    #[arg(long, group = "mode", value_name = "SERIAL-PORT")]
+    /// The name of the serial port (try `taptap list-serial-ports`) of the Modbus-to-serial device (mutually exclusive to --tcp)
+    #[arg(
+        long,
+        required = true,
+        conflicts_with = "tcp",
+        value_name = "SERIAL-PORT"
+    )]
     #[cfg(feature = "serialport")]
     serial: Option<String>,
 
-    /// The IP or hostname which is providing serial-over-TCP service
-    #[arg(long, group = "mode", value_name = "DESTINATION")]
+    /// The IP or hostname of the device which is providing Modbus-over-TCP service
+    #[arg(
+        long,
+        required = true,
+        conflicts_with = "serial",
+        value_name = "DESTINATION"
+    )]
     tcp: Option<String>,
 
-    // If --tcp is specified, the port to which to connect
-    #[arg(long, requires = "tcp", default_value_t = 7160)]
+    /// If --tcp is specified, the port to which to connect
+    #[arg(long, required = false, requires = "tcp", conflicts_with = "serial", value_name = "PORT NUMBER", default_value = Some("502"))]
     port: u16,
+
+    /// The time after which connection is re-established if no data is received in seconds (0 for no timeout)
+    #[arg(long, required = false, value_name = "SECONDS", default_value = Some("60"))]
+    reconnect_timeout: u64,
+
+    /// The number of times to retry reconnecting before giving up (0 for infinite retries)
+    #[arg(long, required = false, value_name = "INT", default_value = Some("0"))]
+    reconnect_retry: u32,
+
+    /// The delay between reconnect attempts in seconds
+    #[arg(long, required = false, value_name = "SECONDS", default_value = Some("5"))]
+    reconnect_delay: u64,
 }
 
 impl Source {
-    fn open(&self) -> Box<dyn physical::Connection> {
-        let src = config::SourceConfig::from(self.clone());
-        match src.open() {
-            Ok(s) => s,
-            Err(e) => {
-                log::error!("error opening source: {}", e);
-                exit(2);
+    fn read<F>(&self, mut callback: F)
+    where
+        F: FnMut(&[u8]),
+    {
+        let source = config::SourceConfig::from(self.clone());
+        let reconnect_timeout = Duration::from_secs(self.reconnect_timeout);
+        let reconnect_delay = Duration::from_secs(self.reconnect_delay);
+        let mut reconnect_retry = 0;
+
+        loop {
+            let mut buffer = [0u8; 1024];
+            let mut conn;
+
+            log::info!("opening source connection...");
+            match source.open() {
+                Ok(s) => {
+                    conn = s;
+                    log::info!("source opened, entering read loop");
+                }
+                Err(e) => {
+                    log::error!("error opening source: {}", e);
+                    reconnect_retry += 1;
+                    if self.reconnect_retry != 0 && reconnect_retry > self.reconnect_retry {
+                        log::warn!(
+                            "maximum reconnect retries ({}) exceeded, exiting",
+                            self.reconnect_retry
+                        );
+                        exit(2);
+                    } else {
+                        log::info!(
+                            "reconnect retry {}/{}",
+                            reconnect_retry,
+                            if self.reconnect_retry == 0 {
+                                "∞".to_string()
+                            } else {
+                                self.reconnect_retry.to_string()
+                            }
+                        );
+                        log::info!("reconnecting in {:?}...", reconnect_delay);
+                        sleep(reconnect_delay);
+                        continue;
+                    }
+                }
+            };
+
+            let mut last_received = Instant::now();
+
+            loop {
+                let slice;
+                match conn.read(&mut buffer) {
+                    Ok(n) => {
+                        if n == 0 {
+                            log::warn!("connection closed by peer, will reconnect");
+                            break; // outer loop will reopen
+                        }
+                        last_received = Instant::now();
+                        reconnect_retry = 0;
+                        slice = &buffer[..n];
+                    }
+                    Err(e) => match e.kind() {
+                        ErrorKind::TimedOut | ErrorKind::WouldBlock => {
+                            if self.reconnect_timeout == 0
+                                || last_received.elapsed() < reconnect_timeout
+                            {
+                                // temporary, continue reading
+                                continue;
+                            } else {
+                                log::warn!(
+                                    "no data for {:?}, reconnecting (idle timeout)",
+                                    reconnect_timeout
+                                );
+                                reconnect_retry += 1;
+                                if self.reconnect_retry != 0
+                                    && reconnect_retry > self.reconnect_retry
+                                {
+                                    log::warn!(
+                                        "maximum reconnect retries ({}) exceeded, exiting",
+                                        self.reconnect_retry
+                                    );
+                                    exit(3);
+                                } else {
+                                    log::info!(
+                                        "reconnect retry {}/{}",
+                                        reconnect_retry,
+                                        if self.reconnect_retry == 0 {
+                                            "∞".to_string()
+                                        } else {
+                                            self.reconnect_retry.to_string()
+                                        }
+                                    );
+                                }
+                                break;
+                            }
+                        }
+                        ErrorKind::Interrupted => continue,
+                        _ => {
+                            log::error!("error reading: {}, will reconnect", e);
+                            break;
+                        }
+                    },
+                };
+                callback(slice);
             }
+            log::info!("reconnecting in {:?}...", reconnect_delay);
+            sleep(reconnect_delay);
         }
     }
 }
@@ -94,6 +220,10 @@ impl From<Source> for config::SourceConfig {
                 hostname: name,
                 port: value.port,
                 mode: config::ConnectionMode::ReadOnly,
+                // hardcode TCP keepalive setting here, might need tuning
+                keepalive_idle: 30,
+                keepalive_interval: 10,
+                keepalive_count: 5,
             }
             .into(),
             _ => {
@@ -113,54 +243,34 @@ fn main() {
 
     match cli.command {
         Commands::PeekBytes { source, raw } => {
-            let source = source.open();
             peek_bytes(source, raw);
         }
 
         Commands::PeekFrames { source } => {
-            let source = source.open();
             peek_frames(source);
         }
 
         Commands::PeekActivity { source } => {
-            let source = source.open();
             peek_activity(source);
         }
+
+        Commands::Observe { source, state_file } => observe(source, state_file),
 
         #[cfg(feature = "serialport")]
         Commands::ListSerialPorts => {
             list_serial_ports();
         }
-
-        Commands::Observe { source } => {
-            let source = source.open();
-            observe(source)
-        }
     }
 }
 
-fn peek_bytes(mut conn: Box<dyn physical::Connection>, raw: bool) {
-    let mut buffer = [0u8; 1024];
-    let mut last_was_7e = false;
-
-    loop {
-        let slice = match conn.read(&mut buffer) {
-            Ok(n) => &buffer[0..n],
-            Err(e) => {
-                log::error!("error reading: {}", e);
-                exit(1);
-            }
-        };
-
-        if slice.is_empty() {
-            return;
-        }
-
+fn peek_bytes(source: Source, raw: bool) {
+    source.read(|slice| {
         let mut out = std::io::stdout().lock();
         if raw {
             out.write_all(slice).unwrap();
         } else {
             let mut formatted = Vec::with_capacity(4 * slice.len());
+            let mut last_was_7e = false;
             for byte in slice {
                 let sep = if last_was_7e && *byte == 0x08 {
                     '\n'
@@ -170,43 +280,24 @@ fn peek_bytes(mut conn: Box<dyn physical::Connection>, raw: bool) {
                 write!(&mut formatted, "{:02X}{}", byte, sep).unwrap();
                 last_was_7e = *byte == 0x7e;
             }
-
             out.write_all(formatted.as_slice()).unwrap();
         }
         out.flush().unwrap();
-    }
+    });
 }
 
-fn peek_frames(mut conn: Box<dyn physical::Connection>) {
-    let mut buffer = [0u8; 1024];
-
+fn peek_frames(source: Source) {
     struct Sink;
     impl taptap::gateway::link::Sink for Sink {
         fn frame(&mut self, frame: Frame) {
             println!("{:?}", frame);
         }
     }
-
     let mut rx = taptap::gateway::link::Receiver::new(Sink);
-
-    loop {
-        let slice = match conn.read(&mut buffer) {
-            Ok(n) => &buffer[0..n],
-            Err(e) => {
-                log::error!("error reading: {}", e);
-                exit(1);
-            }
-        };
-
-        if slice.is_empty() {
-            return;
-        }
-
-        rx.extend_from_slice(slice);
-    }
+    source.read(|slice| rx.extend_from_slice(slice));
 }
 
-fn peek_activity(mut conn: Box<dyn physical::Connection>) {
+fn peek_activity(source: Source) {
     #[derive(Default)]
     struct Sink {
         slot_counters: BTreeMap<GatewayID, SlotCounter>,
@@ -361,23 +452,17 @@ fn peek_activity(mut conn: Box<dyn physical::Connection>) {
         pv::application::Receiver::new(Sink::default()),
     ));
 
-    let mut buffer = [0u8; 1024];
-    loop {
-        let slice = match conn.read(&mut buffer) {
-            Ok(n) => &buffer[0..n],
-            Err(e) => {
-                log::error!("error reading: {}", e);
-                exit(1);
-            }
-        };
-
-        if slice.is_empty() {
-            return;
-        }
-
-        rx.extend_from_slice(slice);
-    }
+    source.read(|slice| rx.extend_from_slice(slice));
 }
+
+fn observe(source: Source, state_file: Option<PathBuf>) {
+    let observer = taptap::observer::Observer::new(state_file);
+    let mut rx = gateway::link::Receiver::new(gateway::transport::Receiver::new(
+        pv::application::Receiver::new(observer),
+    ));
+    source.read(|slice| rx.extend_from_slice(slice));
+}
+
 #[cfg(feature = "serialport")]
 fn list_serial_ports() {
     use serialport::SerialPortType;
@@ -418,29 +503,5 @@ fn list_serial_ports() {
             }
             _ => {}
         }
-    }
-}
-
-fn observe(mut conn: Box<dyn Connection>) {
-    let observer = taptap::observer::Observer::default();
-    let mut rx = gateway::link::Receiver::new(gateway::transport::Receiver::new(
-        pv::application::Receiver::new(observer),
-    ));
-
-    let mut buffer = [0u8; 1024];
-    loop {
-        let slice = match conn.read(&mut buffer) {
-            Ok(n) => &buffer[0..n],
-            Err(e) => {
-                log::error!("error reading: {}", e);
-                exit(1);
-            }
-        };
-
-        if slice.is_empty() {
-            return;
-        }
-
-        rx.extend_from_slice(slice);
     }
 }

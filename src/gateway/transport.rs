@@ -105,7 +105,7 @@ impl ReceiveResponse {
     pub fn read_from_bytes(
         bytes: &[u8],
         packet_number: u16,
-    ) -> Result<(Self, pv::network::ReceivedPackets), InvalidReceiveResponse> {
+    ) -> Result<(Self, pv::network::ReceivedPackets<'_>), InvalidReceiveResponse> {
         // Ensure we have at least a minimal length
         if bytes.len() < 2 {
             return Err(InvalidReceiveResponse::TooShort(5));

@@ -7,7 +7,7 @@ use chrono::{DateTime, Local};
 
 /// An event produced by an observer.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename = "snake_case")]
+#[serde(rename = "snake_case", tag = "type")]
 pub enum Event {
     PowerReport(PowerReportEvent),
 }
@@ -51,9 +51,9 @@ pub struct Node {
 #[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct PowerReportEvent {
     /// The gateway through which the power report was received.
-    pub gateway: Gateway,
+    pub gateway: GatewayID,
     /// The node sending the power report.
-    pub node: Node,
+    pub node: NodeID,
     /// The time at which this measurement was taken.
     pub timestamp: DateTime<Local>,
     pub voltage_in: f64,
@@ -66,8 +66,8 @@ pub struct PowerReportEvent {
 
 impl PowerReportEvent {
     pub fn new(
-        gateway: Gateway,
-        node: Node,
+        gateway: GatewayID,
+        node: NodeID,
         slot_clock: &SlotClock,
         report: &pv::application::PowerReport,
     ) -> Result<Self, InvalidSlotNumber> {
@@ -105,16 +105,8 @@ mod tests {
 
     #[test]
     fn negative_temperature() {
-        let gateway = Gateway {
-            id: 1.try_into().unwrap(),
-            address: None,
-        };
-        let node = Node {
-            id: 1.try_into().unwrap(),
-            address: None,
-            barcode: None,
-        };
-
+        let gateway = GatewayID::try_from(1).unwrap();
+        let node = NodeID::try_from(1).unwrap();
         let rssi = RSSI(100);
         let timestamp = SystemTime::now();
         let slot_counter = SlotCounter::from(0);
